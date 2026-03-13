@@ -627,8 +627,8 @@ class AuthController {
                 user_agent: req?.headers['user-agent']
             });
 
-            const resetLink = `${process.env.BASE_URL}/auth/reset?token=${plainToken}`;
-
+            const baseUrl = process.env.BASE_URL || `https://${req?.get('host') || 'mozaic-eomm.onrender.com'}`;
+            const resetLink = `${baseUrl}/auth/reset?token=${plainToken}`;
             // Send email if user exists
             let emailSent = false;
             if (user) {
