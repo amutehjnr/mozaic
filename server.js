@@ -154,6 +154,21 @@ connectDB().then(() => {
         next();
     });
 
+    // Add this AFTER your global middleware but BEFORE routes
+app.use((req, res, next) => {
+    const originalRedirect = res.redirect;
+    res.redirect = function(url) {
+        console.log('🔴 Redirect attempted to:', url);
+        try {
+            new URL(url, `${req.protocol}://${req.get('host')}`);
+        } catch (e) {
+            console.error('❌ Invalid redirect URL:', url, e.message);
+        }
+        originalRedirect.call(this, url);
+    };
+    next();
+});
+
     // ==================== Rate Limiting ====================
     app.use('/api/', rateLimiter.api);
     app.use('/auth/', rateLimiter.auth);
