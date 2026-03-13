@@ -155,18 +155,65 @@ connectDB().then(() => {
     });
 
     // Add this AFTER your global middleware but BEFORE routes
+// Add this AFTER your global middleware but BEFORE routes
 app.use((req, res, next) => {
     const originalRedirect = res.redirect;
     res.redirect = function(url) {
         console.log('🔴 Redirect attempted to:', url);
+        console.log('   Stack trace:', new Error().stack);
+        
         try {
+            // Test if URL is valid
             new URL(url, `${req.protocol}://${req.get('host')}`);
+            console.log('   ✅ URL is valid');
         } catch (e) {
-            console.error('❌ Invalid redirect URL:', url, e.message);
+            console.error('   ❌ INVALID URL DETECTED:', e.message);
+            console.error('   Full error:', e);
+            // Instead of continuing, redirect to a safe fallback
+            console.log('   ⚠️ Redirecting to safe fallback: /auth/login');
+            return originalRedirect.call(this, '/auth/login');
         }
+        
         originalRedirect.call(this, url);
     };
     next();
+});
+
+// Add this after session middleware
+app.use((req, res, next) => {
+    console.log(`\n📨 ${req.method} ${req.url}`);
+    console.log('   Headers:', {
+        host: req.get('host'),
+        referer: req.get('referer'),
+        'user-agent': req.get('user-agent')?.substring(0, 50)
+    });
+    
+    // Log session data (without sensitive info)
+    if (req.session) {
+        console.log('   Session ID exists:', !!req.session.id);
+        console.log('   User ID:', req.session.userId);
+    }
+    
+    next();
+});
+
+// Add this BEFORE your routes
+app.get('/debug/env', (req, res) => {
+    res.json({
+        NODE_ENV: process.env.NODE_ENV,
+        BASE_URL: process.env.BASE_URL,
+        DOMAIN: process.env.DOMAIN,
+        MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
+        PORT: process.env.PORT,
+        hasSession: !!req.session,
+        sessionID: req.session?.id,
+        hasCsrfSecret: !!req.session?.csrfSecret,
+        headers: {
+            host: req.get('host'),
+            origin: req.get('origin'),
+            referer: req.get('referer')
+        }
+    });
 });
 
     // ==================== Rate Limiting ====================

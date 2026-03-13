@@ -106,6 +106,15 @@ router.get('/test', (req, res) => {
     res.send('Auth test route working!');
 });
 
+// Add this at the bottom of your auth.js routes file
+router.get('/debug', (req, res) => {
+    res.json({
+        message: 'Auth routes are working',
+        session: req.session ? 'exists' : 'none',
+        csrfToken: req.csrfToken ? req.csrfToken() : 'not available'
+    });
+});
+
 router.get('/verify-email/:token', isAuthenticated, authController.verifyEmail);
 
 module.exports = router;
