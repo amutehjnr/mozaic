@@ -25,21 +25,8 @@ class AuthController {
      * Show login/register page
      */
     showAuthPage(req, res) {
-    console.log('🔍 showAuthPage started');
-    try {
         const isLogin = req.path === '/login';
-        console.log('   - isLogin:', isLogin);
-        console.log('   - BASE_URL:', process.env.BASE_URL);
-        
-        // Test if BASE_URL is valid
-        try {
-            new URL(process.env.BASE_URL);
-            console.log('   ✅ BASE_URL is valid');
-        } catch (e) {
-            console.error('   ❌ BASE_URL is invalid:', e.message);
-        }
-
-        console.log('   - Rendering auth/index');
+        console.log('🔍 showAuthPage called:', { isLogin, path: req.path });
         res.render('auth/index', {
             title: isLogin ? 'Sign In - MozAic' : 'Create Account - MozAic',
             bodyClass: 'auth-page',
@@ -48,12 +35,7 @@ class AuthController {
             csrfToken: req.csrfToken ? req.csrfToken() : '',
             flashMessages: req.flash()
         });
-        console.log('   ✅ Render called');
-    } catch (error) {
-        console.error('❌ Error in showAuthPage:', error);
-        res.status(500).send(`Error: ${error.message}\n${error.stack}`);
     }
-}
 
     /**
      * Show forgot password page
