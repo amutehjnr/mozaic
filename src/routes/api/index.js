@@ -117,6 +117,9 @@ router.post('/wallet/requery',
     walletController.requeryTransaction
 );
 
+// Add this with your other routes
+router.use('/csrf', require('./csrf'));
+
 /**
  * Bill payment endpoints
  */

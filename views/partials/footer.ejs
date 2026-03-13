@@ -164,13 +164,13 @@
       };
 
       // Inject CSRF into forms when available
-      // fetch(API.csrf).then(r=>r.json()).then(({token})=>{
-      //   document.querySelectorAll('form').forEach(f=>{
-      //     if(!f.querySelector('input[name="csrf_token"]')){
-      //       const i=document.createElement('input'); i.type='hidden'; i.name='csrf_token'; i.value=token; f.appendChild(i);
-      //     }
-      //   });
-      // }).catch(()=>{ /* ignore first paint */ });
+      fetch(API.csrf).then(r=>r.json()).then(({token})=>{
+        document.querySelectorAll('form').forEach(f=>{
+          if(!f.querySelector('input[name="csrf_token"]')){
+            const i=document.createElement('input'); i.type='hidden'; i.name='csrf_token'; i.value=token; f.appendChild(i);
+          }
+        });
+      }).catch(()=>{ /* ignore first paint */ });
 
       // Intercept forms that post to /api/*
       document.addEventListener('submit', async (e) => {
