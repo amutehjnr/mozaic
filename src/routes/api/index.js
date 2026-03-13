@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { isAuthenticated, isAdmin } = require('../../middleware/auth');
-const { csrfProtection } = require('../../middleware/csrf');
 const { validate } = require('../../middleware/validation');
 const rateLimiter = require('../../middleware/rateLimiter');
 const { handleMultipart } = require('../../middleware/multer'); 
