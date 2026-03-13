@@ -1,0 +1,1080 @@
+<%
+const user = typeof userData !== 'undefined' ? userData : { 
+    id: 0, 
+    name: '', 
+    email: '', 
+    phone: '', 
+    address: '',
+    photo: '',
+    created_at: '',
+    lastLogin: '',
+    isEmailVerified: false,
+    isPhoneVerified: false
+};
+
+// KYC data
+const kyc = typeof kycData !== 'undefined' ? kycData : { status: 'not_started', tier: 'tier1' };
+
+// Flash messages
+const flash = typeof flashMessages !== 'undefined' ? flashMessages : { success: '', error: '' };
+
+// Format helpers
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-NG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
+const getKycStatusBadge = (status) => {
+    const badges = {
+        'verified': 'badge-soft-success',
+        'pending': 'badge-soft-warning',
+        'rejected': 'badge-soft-danger',
+        'not_started': 'badge-soft-secondary',
+        'draft': 'badge-soft-info'
+    };
+    return badges[status?.toLowerCase()] || 'badge-soft-secondary';
+};
+
+const getKycStatusText = (status) => {
+    const texts = {
+        'verified': 'Verified',
+        'pending': 'Pending Review',
+        'rejected': 'Rejected',
+        'not_started': 'Not Started',
+        'draft': 'In Progress'
+    };
+    return texts[status?.toLowerCase()] || status || 'Unknown';
+};
+%>
+<%- include('../../partials/header') %>
+
+<style>
+  :root {
+    --jn-primary: #EF5134;
+    --jn-primary-600: #e3472b;
+    --jn-success: #10b981;
+    --jn-warning: #f59e0b;
+    --jn-info: #3b82f6;
+  }
+
+  body {
+    background: #f8fafc;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .navbar {
+    background: rgba(11, 18, 32, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 0;
+  }
+
+  .navbar-brand {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: white !important;
+  }
+
+  .navbar-brand span {
+    color: var(--jn-primary);
+  }
+
+  #header {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+  }
+
+  #header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, rgba(11,18,32,0.95), rgba(11,18,32,0.7));
+  }
+
+  #header .container {
+    position: relative;
+    z-index: 1;
+    color: white;
+  }
+
+  .card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .btn-theme {
+    background: var(--jn-primary);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    color: white;
+    transition: all 0.2s;
+  }
+
+  .btn-theme:hover {
+    background: var(--jn-primary-600);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239,81,52,0.3);
+  }
+
+  .btn-outline-dark {
+    border-radius: 10px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 500;
+  }
+
+  .form-control, .form-select {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 0.6rem 1rem;
+  }
+
+  .form-control:focus, .form-select:focus {
+    border-color: var(--jn-primary);
+    box-shadow: 0 0 0 3px rgba(239,81,52,0.15);
+  }
+
+  .badge-soft {
+    padding: 0.35rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .badge-soft-success {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .badge-soft-warning {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+
+  .badge-soft-danger {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .badge-soft-info {
+    background: #e0f2fe;
+    color: #075985;
+  }
+
+  .badge-soft-secondary {
+    background: #f1f5f9;
+    color: #334155;
+  }
+
+  .password-toggle {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #64748b;
+    z-index: 10;
+  }
+
+  .password-toggle:hover {
+    color: var(--jn-primary);
+  }
+
+  .profile-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 16px 16px 0 0;
+    margin: -1rem -1rem 1rem -1rem;
+  }
+
+  .profile-avatar {
+    width: 100px;
+    height: 100px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--jn-primary);
+    margin: 0 auto 1rem;
+    border: 4px solid rgba(255,255,255,0.3);
+  }
+
+  .verification-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.85rem;
+  }
+
+  .verification-badge.verified {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .verification-badge.unverified {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .activity-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .activity-icon {
+    width: 32px;
+    height: 32px;
+    background: #f1f5f9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--jn-primary);
+  }
+
+  /* Loading spinner */
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+  }
+
+  /* Toast notifications */
+  .toast-container {
+    z-index: 1060;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+    
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      font-size: 2rem;
+    }
+  }
+
+  /* Animation */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .card {
+    animation: slideIn 0.3s ease-out;
+  }
+</style>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container">
+    <a class="navbar-brand" href="/"><span>Moz</span>Aic</a>
+    <button class="navbar-toggler text-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/user">Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/history">History</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/referrals">Referrals</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="/dashboard/settings">Settings</a>
+        </li>
+      </ul>
+      <div class="d-flex gap-2">
+        <span class="stat-pill d-none d-md-block">
+          <i class="bi bi-person-circle me-1"></i>
+          <%= user.name || user.email %>
+        </span>
+        <form method="POST" action="/auth/logout" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-box-arrow-right me-1"></i> Logout
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<header id="header">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="fw-bold mb-2">Profile & Security</h1>
+        <p class="lead mb-0 opacity-75">Manage your account settings and security preferences</p>
+      </div>
+      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <span class="badge bg-white text-dark px-3 py-2">
+          <i class="bi bi-shield-check me-1 text-success"></i>
+          Member since <%= new Date(user.created_at).getFullYear() %>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="section py-4">
+  <div class="container">
+    
+    <!-- Flash Messages -->
+    <% if (flash.success) { %>
+      <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <%= flash.success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <% } %>
+    
+    <% if (flash.error) { %>
+      <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <%= flash.error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <% } %>
+    
+    <div class="row g-4">
+      <!-- Left Column - Profile -->
+      <div class="col-lg-6">
+        <!-- Profile Card -->
+        <div class="card p-4 mb-4">
+          <div class="text-center mb-4">
+            <div class="profile-avatar">
+              <%= getInitials(user.name) %>
+            </div>
+            <h4 class="fw-bold mb-1"><%= user.name || 'User' %></h4>
+            <p class="text-muted mb-2"><%= user.email %></p>
+            
+            <!-- Verification Status -->
+            <div class="d-flex justify-content-center gap-2 mb-3">
+              <% if (user.isEmailVerified) { %>
+                <span class="verification-badge verified">
+                  <i class="bi bi-check-circle-fill"></i> Email Verified
+                </span>
+              <% } else { %>
+                <span class="verification-badge unverified">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Email Unverified
+                </span>
+              <% } %>
+              
+              <% if (user.isPhoneVerified) { %>
+                <span class="verification-badge verified">
+                  <i class="bi bi-check-circle-fill"></i> Phone Verified
+                </span>
+              <% } else { %>
+                <span class="verification-badge unverified">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Phone Unverified
+                </span>
+              <% } %>
+            </div>
+            
+            <!-- KYC Status -->
+            <div class="d-flex justify-content-center align-items-center gap-2">
+              <span class="badge-soft <%= getKycStatusBadge(kyc.status) %>">
+                <i class="bi bi-person-badge me-1"></i>
+                KYC: <%= getKycStatusText(kyc.status) %>
+              </span>
+              <% if (kyc.status !== 'verified') { %>
+                <a href="/dashboard/verify" class="btn btn-sm btn-outline-primary">
+                  Complete KYC
+                </a>
+              <% } %>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Profile Form -->
+          <h5 class="fw-bold mb-3">
+            <i class="bi bi-pencil-square me-2 text-primary"></i>
+            Edit Profile
+          </h5>
+          
+          <form class="row g-3 needs-validation" method="POST" action="/api/user/profile" id="profileForm" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Full name</label>
+              <input type="text" class="form-control" name="name" value="<%= user.name ? user.name : '' %>" required>
+              <div class="invalid-feedback">Please enter your name</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Email address</label>
+              <input type="email" class="form-control" name="email" value="<%= user.email ? user.email : '' %>" required>
+              <div class="invalid-feedback">Please enter a valid email</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Phone number</label>
+              <input type="tel" class="form-control" name="phone" value="<%= user.phone ? user.phone : '' %>" placeholder="0801 234 5678">
+              <div class="invalid-feedback">Please enter a valid phone number</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Address</label>
+              <input type="text" class="form-control" name="address" value="<%= user.address ? user.address : '' %>" placeholder="Enter your address">
+            </div>
+
+            <div class="col-12">
+              <button class="btn btn-theme" type="submit" id="saveProfileBtn">
+                <i class="bi bi-check-lg me-1"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Account Information -->
+        <div class="card p-4">
+          <h5 class="fw-bold mb-3">
+            <i class="bi bi-info-circle me-2 text-primary"></i>
+            Account Information
+          </h5>
+          
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="text-muted small">Member Since</div>
+              <div class="fw-semibold"><%= formatDate(user.created_at) %></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">Last Login</div>
+              <div class="fw-semibold"><%= formatDate(user.lastLogin) %></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">Account Type</div>
+              <div class="fw-semibold"><%= user.role || 'User' %></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">KYC Tier</div>
+              <div class="fw-semibold"><%= kyc.tier?.toUpperCase() || 'Tier 1' %></div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="exportData()">
+              <i class="bi bi-download me-1"></i> Export Data
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="deleteAccount()">
+              <i class="bi bi-trash me-1"></i> Delete Account
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column - Security -->
+      <div class="col-lg-6">
+        <!-- Security Card -->
+        <div class="card p-4 mb-4">
+          <h5 class="fw-bold mb-3">
+            <i class="bi bi-shield-lock me-2 text-primary"></i>
+            Change Password
+          </h5>
+          
+          <form class="row g-3 needs-validation" method="POST" action="/api/user/password" id="passwordForm" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Current password</label>
+              <div class="position-relative">
+                <input type="password" class="form-control" name="current" id="currentPassword" required>
+                <button class="password-toggle" type="button" onclick="togglePassword('currentPassword')">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Please enter your current password</div>
+            </div>
+            
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">New password</label>
+              <div class="position-relative">
+                <input type="password" class="form-control" name="new" minlength="6" id="newPassword" required>
+                <button class="password-toggle" type="button" onclick="togglePassword('newPassword')">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Password must be at least 6 characters</div>
+            </div>
+            
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Confirm new password</label>
+              <div class="position-relative">
+                <input type="password" class="form-control" name="confirm" minlength="6" id="confirmPassword" required>
+                <button class="password-toggle" type="button" onclick="togglePassword('confirmPassword')">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="invalid-feedback">Passwords must match</div>
+            </div>
+            
+            <div class="col-12">
+              <div id="passwordStrength" class="small mt-1"></div>
+              <div id="passwordMatch" class="small mt-1"></div>
+            </div>
+            
+            <div class="col-12">
+              <button class="btn btn-theme" type="submit" id="changePasswordBtn">
+                <i class="bi bi-key me-1"></i> Update Password
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Two-Factor Authentication -->
+        <div class="card p-4 mb-4">
+          <h5 class="fw-bold mb-3">
+            <i class="bi bi-shield-check me-2 text-primary"></i>
+            Two-Factor Authentication
+          </h5>
+          
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <strong>Status:</strong>
+              <% if (user.twoFactorEnabled) { %>
+                <span class="badge-soft badge-soft-success ms-2">Enabled</span>
+              <% } else { %>
+                <span class="badge-soft badge-soft-secondary ms-2">Disabled</span>
+              <% } %>
+            </div>
+            <a href="/auth/2fa/setup" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-gear me-1"></i> Configure
+            </a>
+          </div>
+          
+          <p class="small text-muted mb-0">
+            Add an extra layer of security to your account by requiring both your password and a verification code from your phone.
+          </p>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card p-4">
+          <h5 class="fw-bold mb-3">
+            <i class="bi bi-clock-history me-2 text-primary"></i>
+            Recent Login Activity
+          </h5>
+          
+          <div id="recentActivity">
+            <!-- Populated by JavaScript -->
+            <div class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="small text-muted mt-2">Loading recent activity...</p>
+            </div>
+          </div>
+          
+          <div class="mt-3">
+            <a href="#" class="btn btn-outline-dark btn-sm w-100">
+              View All Devices
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Delete Account Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger" id="deleteModalLabel">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          Delete Account
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger">
+          <strong>Warning:</strong> This action is permanent and cannot be undone.
+        </div>
+        <p>Deleting your account will:</p>
+        <ul class="small">
+          <li>Remove all your personal information</li>
+          <li>Delete your transaction history</li>
+          <li>Cancel any pending transactions</li>
+          <li>Remove you from all referrals</li>
+        </ul>
+        
+        <form id="deleteForm" class="mt-3">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          
+          <div class="mb-3">
+            <label class="form-label">Type "DELETE" to confirm</label>
+            <input type="text" class="form-control" id="confirmDelete" placeholder="DELETE" required>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Enter your password</label>
+            <input type="password" class="form-control" id="deletePassword" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn" disabled>
+          <i class="bi bi-trash me-1"></i> Permanently Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Data Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exportModalLabel">
+          <i class="bi bi-download me-2 text-primary"></i>
+          Export Your Data
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>You can request a copy of your personal data. We'll prepare a JSON file containing:</p>
+        <ul class="small">
+          <li>Profile information</li>
+          <li>Transaction history</li>
+          <li>Beneficiaries</li>
+          <li>KYC information</li>
+          <li>Referral history</li>
+        </ul>
+        <p class="text-muted small">Your data will be ready for download shortly.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmExportBtn">
+          <i class="bi bi-file-earmark-arrow-down me-1"></i> Request Export
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+(function() {
+    'use strict';
+
+    // Toast function
+    function showToast(message, type = 'success') {
+        const container = document.querySelector('.toast-container');
+        const toastId = 'toast-' + Date.now();
+        
+        const bgColor = {
+            'success': 'text-bg-success',
+            'error': 'text-bg-danger',
+            'warning': 'text-bg-warning',
+            'info': 'text-bg-info'
+        }[type] || 'text-bg-success';
+        
+        const icon = {
+            'success': 'bi-check-circle-fill',
+            'error': 'bi-exclamation-triangle-fill',
+            'warning': 'bi-exclamation-circle-fill',
+            'info': 'bi-info-circle-fill'
+        }[type] || 'bi-bell-fill';
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center ${bgColor} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body d-flex align-items-center gap-2">
+                        <i class="bi ${icon}"></i>
+                        <span>${escapeHtml(message)}</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', toastHtml);
+        
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // Toggle password visibility
+    window.togglePassword = function(inputId) {
+        const input = document.getElementById(inputId);
+        const button = input.nextElementSibling;
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        button.innerHTML = type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+    };
+
+    // Password strength checker
+    const newPassword = document.getElementById('newPassword');
+    const confirmPassword = document.getElementById('confirmPassword');
+    const strengthDiv = document.getElementById('passwordStrength');
+    const matchDiv = document.getElementById('passwordMatch');
+
+    if (newPassword) {
+        newPassword.addEventListener('input', checkPasswordStrength);
+    }
+
+    if (confirmPassword) {
+        confirmPassword.addEventListener('input', checkPasswordMatch);
+    }
+
+    function checkPasswordStrength() {
+        const password = newPassword.value;
+        let strength = 0;
+        
+        if (password.length >= 6) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        
+        const strengthText = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+        const strengthClass = ['text-danger', 'text-danger', 'text-warning', 'text-info', 'text-success'];
+        
+        if (password.length === 0) {
+            strengthDiv.innerHTML = '';
+        } else {
+            const level = Math.min(strength, 4);
+            strengthDiv.innerHTML = `Password strength: <span class="${strengthClass[level]}">${strengthText[level]}</span>`;
+        }
+        
+        checkPasswordMatch();
+    }
+
+    function checkPasswordMatch() {
+        if (!newPassword || !confirmPassword) return;
+        
+        if (confirmPassword.value.length > 0) {
+            if (newPassword.value === confirmPassword.value) {
+                matchDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Passwords match</span>';
+                confirmPassword.setCustomValidity('');
+            } else {
+                matchDiv.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle-fill me-1"></i> Passwords do not match</span>';
+                confirmPassword.setCustomValidity('Passwords do not match');
+            }
+        } else {
+            matchDiv.innerHTML = '';
+        }
+    }
+
+    // Profile form submission
+    const profileForm = document.getElementById('profileForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!profileForm.checkValidity()) {
+                profileForm.classList.add('was-validated');
+                return;
+            }
+            
+            const btn = document.getElementById('saveProfileBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Saving...';
+            
+            try {
+                const formData = new FormData(profileForm);
+                const response = await fetch(profileForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to update profile');
+                }
+                
+                showToast('Profile updated successfully!', 'success');
+                
+                // Update displayed name
+                const nameInput = profileForm.querySelector('[name="name"]');
+                if (nameInput) {
+                    document.querySelectorAll('.profile-avatar, .stat-pill').forEach(el => {
+                        if (el.textContent.includes('@')) {
+                            // Don't update email displays
+                        } else {
+                            el.textContent = nameInput.value;
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Profile update error:', error);
+                showToast(error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    }
+
+    // Password form submission
+    const passwordForm = document.getElementById('passwordForm');
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!passwordForm.checkValidity()) {
+                passwordForm.classList.add('was-validated');
+                return;
+            }
+            
+            const btn = document.getElementById('changePasswordBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Updating...';
+            
+            try {
+                const formData = new FormData(passwordForm);
+                const response = await fetch(passwordForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to change password');
+                }
+                
+                showToast('Password changed successfully!', 'success');
+                
+                // Clear form
+                passwordForm.reset();
+                passwordForm.classList.remove('was-validated');
+                strengthDiv.innerHTML = '';
+                matchDiv.innerHTML = '';
+                
+            } catch (error) {
+                console.error('Password change error:', error);
+                showToast(error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    }
+
+    // Load recent activity
+    async function loadRecentActivity() {
+        const container = document.getElementById('recentActivity');
+        
+        try {
+            // This would fetch from your API
+            // For now, show mock data
+            const activities = [
+                { device: 'Chrome on Windows', time: '2 hours ago', location: 'Lagos, NG' },
+                { device: 'Mobile Safari on iPhone', time: 'Yesterday', location: 'Abuja, NG' },
+                { device: 'Firefox on MacOS', time: '3 days ago', location: 'Port Harcourt, NG' }
+            ];
+            
+            let html = '';
+            activities.forEach(activity => {
+                html += `
+                    <div class="activity-item d-flex align-items-center gap-3">
+                        <div class="activity-icon">
+                            <i class="bi bi-laptop"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold small">${activity.device}</div>
+                            <div class="small text-muted">${activity.time} • ${activity.location}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Load activity error:', error);
+            container.innerHTML = '<p class="text-muted small text-center">Failed to load activity</p>';
+        }
+    }
+
+    // Export data
+    window.exportData = function() {
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        modal.show();
+    };
+
+    document.getElementById('confirmExportBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('confirmExportBtn');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+        
+        try {
+            const response = await fetch('/api/user/export', {
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Export failed');
+            }
+            
+            // Create download
+            const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mozaic-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+            showToast('Data exported successfully', 'success');
+            
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
+
+    // Delete account
+    window.deleteAccount = function() {
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    };
+
+    const confirmDelete = document.getElementById('confirmDelete');
+    const deletePassword = document.getElementById('deletePassword');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+    if (confirmDelete && deletePassword) {
+        function checkDeleteForm() {
+            confirmBtn.disabled = !(confirmDelete.value === 'DELETE' && deletePassword.value.length > 0);
+        }
+        
+        confirmDelete.addEventListener('input', checkDeleteForm);
+        deletePassword.addEventListener('input', checkDeleteForm);
+    }
+
+    confirmBtn?.addEventListener('click', async () => {
+        const btn = confirmBtn;
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+        
+        try {
+            const response = await fetch('/api/user/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '<%= csrfToken %>'
+                },
+                body: JSON.stringify({
+                    confirm: confirmDelete.value,
+                    password: deletePassword.value
+                }),
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Delete failed');
+            }
+            
+            // Redirect to goodbye page
+            window.location.href = '/auth/goodbye';
+            
+        } catch (error) {
+            console.error('Delete account error:', error);
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
+
+    // Load recent activity on page load
+    loadRecentActivity();
+})();
+</script>
+
+<%- include('../../partials/footer') %>

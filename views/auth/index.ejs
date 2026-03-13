@@ -1,0 +1,515 @@
+<%- include('../partials/header') %>
+
+<%
+// Safely handle undefined values for any arrays
+if (typeof transactions === 'undefined') var transactions = [];
+if (typeof messages === 'undefined') var messages = {};
+%>
+
+<script>
+// Prevent any forEach errors before they happen
+(function() {
+    // Safely override forEach to prevent errors on null/undefined
+    const originalForEach = Array.prototype.forEach;
+    Array.prototype.forEach = function(callback, thisArg) {
+        if (this == null) {
+            console.warn('forEach called on null/undefined, skipping');
+            return;
+        }
+        if (!Array.isArray(this)) {
+            console.warn('forEach called on non-array:', this);
+            return;
+        }
+        return originalForEach.call(this, callback, thisArg);
+    };
+    
+    // Ensure Bootstrap is safely initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Initialize Bootstrap components safely
+            if (typeof bootstrap !== 'undefined') {
+                // Initialize dropdowns
+                var dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+                if (dropdowns.length) {
+                    Array.from(dropdowns).forEach(function(el) {
+                        try {
+                            new bootstrap.Dropdown(el);
+                        } catch (e) {}
+                    });
+                }
+                
+                // Initialize tabs
+                var tabs = document.querySelectorAll('[data-bs-toggle="pill"]');
+                if (tabs.length) {
+                    Array.from(tabs).forEach(function(el) {
+                        try {
+                            new bootstrap.Tab(el);
+                        } catch (e) {}
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Bootstrap initialization error:', e);
+        }
+    });
+})();
+</script>
+
+<style>
+  :root{
+    --jn-font:'Poppins',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    --jn-primary:#EF5134; --jn-primary-600:#e3472b;
+    --jn-bg:#0f172a; --jn-surface:#ffffff; --jn-muted:#64748b; --jn-border:#e5e7eb;
+    --jn-shadow-lg:0 24px 48px rgba(2,6,23,.15); --jn-shadow-sm:0 1px 3px rgba(2,6,23,.12),0 1px 2px rgba(2,6,23,.06);
+  }
+  html,body{height:100%;}
+  body{font-family:var(--jn-font);background:radial-gradient(1000px 600px at 10% -10%, rgba(239,81,52,.12) 0%, rgba(239,81,52,0) 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(14,165,233,.12) 0%, rgba(14,165,233,0) 55%), #0b1220;}
+  .auth-shell{max-width:1080px;border-radius:24px;overflow:hidden;background:var(--jn-surface);box-shadow:var(--jn-shadow-lg);}
+  .brand-pane{background:linear-gradient(135deg,#161e31, #0b1220 60%); color:#e5e7eb; position:relative;}
+  .brand-pane::after{content:'';position:absolute;inset:auto -20% -25% -20%;height:60%;background:radial-gradient(500px 300px at 50% 0, rgba(239,81,52,.35), rgba(239,81,52,0));filter:blur(40px);}
+  .brand-badge{display:inline-flex;align-items:center;gap:.6rem;background:#fff;border-radius:999px;padding:.45rem .8rem;color:#111;box-shadow:var(--jn-shadow-sm);font-weight:700;}
+  .brand-title{font-weight:800;letter-spacing:.4px;}
+  .brand-title span{color:var(--jn-primary);}    
+  .feature{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.9rem;color:#cbd5e1;}
+  .feature i{font-size:1.1rem;color:#22d3ee;margin-top:.2rem;}
+  .form-pane{padding:32px 28px 28px 28px;} @media (min-width:992px){ .form-pane{padding:48px;} }
+  .nav-pills .nav-link{font-weight:700;border-radius:999px;}
+  .nav-pills .nav-link.active{background:var(--jn-primary);}
+  .form-floating>.form-control, .form-floating>.form-select{border-radius:14px;border:1px solid var(--jn-border);} 
+  .form-control:focus{border-color:var(--jn-primary); box-shadow:0 0 0 3px rgba(239,81,52,.15);}  
+  .btn-theme{background:var(--jn-primary);border:0;border-radius:14px;font-weight:700;}
+  .btn-theme:hover{background:var(--jn-primary-600);}  
+  .btn-outline-dark{border-radius:14px;}
+  .divider{display:flex;align-items:center;gap:.75rem;color:var(--jn-muted);}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--jn-border);}  
+  .small-muted{color:var(--jn-muted);} 
+  .form-hint{font-size:.875rem; color:var(--jn-muted);}  
+  .password-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);border:0;background:transparent;}
+  .logo-text{font-weight:900;font-size:1.4rem;letter-spacing:.4px;color:#fff}
+  .logo-text span{color:var(--jn-primary)}
+  
+  /* Loading spinner */
+  .btn-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+  }
+  .btn-loading .spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.6s linear infinite;
+    margin-right: 0.5rem;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<main class="d-flex align-items-center justify-content-center min-vh-100 px-3 py-4 py-lg-5">
+  <div class="container px-0">
+    <div class="row g-0 auth-shell mx-auto">
+
+      <!-- Brand / Left -->
+      <aside class="col-lg-5 brand-pane p-4 p-md-5 d-flex flex-column">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+          <div class="logo-text">Moz<span>Aic</span></div>
+          <span class="brand-badge"><i class="bi bi-stars"></i> Trusted Service</span>
+        </div>
+        <div class="mt-auto">
+          <h2 class="brand-title display-6">Welcome to <span>MozAic</span></h2>
+          <p class="lead small-muted">Sign in to manage your wallet, buy data & airtime, pay bills and more — all in one clean dashboard.</p>
+
+          <div class="mt-4">
+            <div class="feature"><i class="bi bi-shield-check"></i><div><strong>Secure</strong><br><span class="small">Bank-grade encryption & 2-step security options.</span></div></div>
+            <div class="feature"><i class="bi bi-speedometer2"></i><div><strong>Fast checkout</strong><br><span class="small">Save beneficiaries and complete in seconds.</span></div></div>
+            <div class="feature"><i class="bi bi-phone"></i><div><strong>Mobile friendly</strong><br><span class="small">Beautiful experience on any screen size.</span></div></div>
+          </div>
+
+          <p class="mt-4 small text-secondary mb-0">By proceeding, you agree to our <a class="link-light" href="/terms">Terms</a> and <a class="link-light" href="/privacy">Privacy</a>.</p>
+        </div>
+      </aside>
+
+      <!-- Forms / Right -->
+      <section class="col-lg-7 form-pane bg-white">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <ul class="nav nav-pills" id="authTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="login-tab" data-bs-toggle="pill" data-bs-target="#pane-login" type="button" role="tab" aria-controls="pane-login" aria-selected="true">Sign In</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="signup-tab" data-bs-toggle="pill" data-bs-target="#pane-signup" type="button" role="tab" aria-controls="pane-signup" aria-selected="false">Create Account</button>
+            </li>
+          </ul>
+          <a href="/" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Home</a>
+        </div>
+
+        <!-- Flash Messages -->
+        <% if (messages && messages.error) { %>
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <%= messages.error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+        
+        <% if (messages && messages.success) { %>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <%= messages.success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        <% } %>
+
+        <div class="tab-content" id="authTabsContent">
+          <!-- LOGIN -->
+          <div class="tab-pane fade show active" id="pane-login" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
+            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/login" id="loginForm" enctype="application/x-www-form-urlencoded>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-12">
+                <div class="form-floating">
+                  <input type="email" class="form-control" id="loginEmail" name="email" placeholder="name@example.com" value="<%= (typeof formData !== 'undefined' && formData && formData.email) ? formData.email : '' %>" required>
+                  <label for="loginEmail"><i class="bi bi-envelope-at"></i> Email address</label>
+                  <div class="invalid-feedback">Please enter a valid email.</div>
+                </div>
+              </div>
+              <div class="col-12 position-relative">
+                <div class="form-floating">
+                  <input type="password" class="form-control" id="loginPassword" name="password" placeholder="••••••••" required>
+                  <label for="loginPassword"><i class="bi bi-shield-lock"></i> Password</label>
+                  <div class="invalid-feedback">Password is required.</div>
+                </div>
+                <button class="password-toggle" type="button" aria-label="Show password" data-target="#loginPassword"><i class="bi bi-eye"></i></button>
+              </div>
+              <div class="col-12 d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="1" id="rememberMe" name="remember">
+                  <label class="form-check-label" for="rememberMe">Remember me</label>
+                </div>
+                <a href="/auth/forgot" class="small">Forgot password?</a>
+              </div>
+              <div class="col-12 d-grid">
+                <button class="btn btn-theme btn-lg" type="submit" id="loginSubmitBtn">
+                  <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                </button>
+              </div>
+              <div class="col-12 text-center small mt-2">
+                New here? <a href="javascript:void(0)" onclick="switchToSignup()" class="fw-semibold">Create an account</a>
+              </div>
+            </form>
+            
+            <!-- Login Error Container -->
+            <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
+          </div>
+
+          <!-- SIGNUP -->
+          <div class="tab-pane fade" id="pane-signup" role="tabpanel" aria-labelledby="signup-tab" tabindex="0">
+            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/register" id="signupForm" enctype="application/x-www-form-urlencoded>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-12">
+                <div class="form-floating">
+                  <input type="text" class="form-control" id="fullName" name="name" placeholder="Your full name" value="<%= (typeof formData !== 'undefined' && formData && formData.name) ? formData.name : '' %>" required>
+                  <label for="fullName"><i class="bi bi-person"></i> Full name</label>
+                  <div class="invalid-feedback">Please enter your name.</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="email" class="form-control" id="signupEmail" name="email" placeholder="name@example.com" value="<%= (typeof formData !== 'undefined' && formData && formData.email) ? formData.email : '' %>" required>
+                  <label for="signupEmail"><i class="bi bi-envelope-at"></i> Email address</label>
+                  <div class="invalid-feedback">Enter a valid email.</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-floating">
+                  <input type="tel" class="form-control" id="phone" name="phone" placeholder="0801 234 5678" pattern="^[0-9+\-()\s]{7,}$" value="<%= (typeof formData !== 'undefined' && formData && formData.phone) ? formData.phone : '' %>" required>
+                  <label for="phone"><i class="bi bi-telephone"></i> Phone number</label>
+                  <div class="invalid-feedback">Enter a valid phone number.</div>
+                </div>
+              </div>
+              <div class="col-md-6 position-relative">
+                <div class="form-floating">
+                  <input type="password" class="form-control" id="signupPassword" name="password" placeholder="Create password" minlength="6" required data-password>
+                  <label for="signupPassword"><i class="bi bi-shield-lock"></i> Password</label>
+                  <div class="invalid-feedback">Use at least 6 characters.</div>
+                </div>
+                <button class="password-toggle" type="button" aria-label="Show password" data-target="#signupPassword"><i class="bi bi-eye"></i></button>
+                <small id="pwStrength" class="form-hint ms-2"></small>
+              </div>
+              <div class="col-md-6 position-relative">
+                <div class="form-floating">
+                  <input type="password" class="form-control" id="confirmPassword" name="confirm" placeholder="Confirm password" required data-confirm>
+                  <label for="confirmPassword"><i class="bi bi-check2-circle"></i> Confirm password</label>
+                  <div class="invalid-feedback">Passwords must match.</div>
+                </div>
+                <button class="password-toggle" type="button" aria-label="Show password" data-target="#confirmPassword"><i class="bi bi-eye"></i></button>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="1" id="terms" name="terms" required>
+                  <label class="form-check-label" for="terms">I agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</label>
+                  <div class="invalid-feedback">You must accept to continue.</div>
+                </div>
+              </div>
+              <div class="col-12 d-grid">
+                <button class="btn btn-theme btn-lg" type="submit" id="signupSubmitBtn">
+                  <i class="bi bi-person-plus me-1"></i> Create account
+                </button>
+              </div>
+              <div class="col-12 text-center small mt-2">
+                Already have an account? <a href="javascript:void(0)" onclick="switchToLogin()" class="fw-semibold">Sign in</a>
+              </div>
+            </form>
+            
+            <!-- Signup Error Container -->
+            <div id="signupError" class="alert alert-danger mt-3" style="display: none;"></div>
+          </div>
+        </div>
+
+        <p class="text-center small small-muted mt-4 mb-0">
+          Need help? <a href="/support">Contact Support</a>. This page is protected and the Google
+          <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a> apply.
+        </p>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  
+  // Wait for DOM to be fully loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    
+    // Password toggle functionality
+    try {
+      document.querySelectorAll('.password-toggle').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          const target = document.querySelector(this.dataset.target);
+          if(!target) return;
+          const isPwd = target.getAttribute('type') === 'password';
+          target.setAttribute('type', isPwd ? 'text' : 'password');
+          this.innerHTML = isPwd ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        });
+      });
+    } catch (e) { console.warn('Password toggle error:', e); }
+    
+    // Password strength indicator
+    try {
+      const pw = document.getElementById('signupPassword');
+      const strength = document.getElementById('pwStrength');
+      if(pw && strength){
+        pw.addEventListener('input', function(){
+          const v = pw.value; 
+          let s = 0;
+          if(v.length >= 6) s++; 
+          if(/[A-Z]/.test(v)) s++; 
+          if(/[a-z]/.test(v)) s++; 
+          if(/[0-9]/.test(v)) s++; 
+          if(/[^A-Za-z0-9]/.test(v)) s++;
+          const labels = ['Very weak','Weak','Fair','Good','Strong'];
+          const colors = ['text-danger', 'text-danger', 'text-warning', 'text-info', 'text-success'];
+          const level = Math.min(s-1, 4);
+          strength.innerHTML = v ? `Strength: <span class="${colors[level]}">${labels[level]}</span>` : '';
+        });
+      }
+    } catch (e) { console.warn('Password strength error:', e); }
+    
+    // Form validation
+    try {
+      Array.from(document.querySelectorAll('.needs-validation')).forEach(function(form){
+        form.addEventListener('submit', function(event){
+          const pwd = form.querySelector('[data-password]');
+          const cfm = form.querySelector('[data-confirm]');
+          if(pwd && cfm){ 
+            cfm.setCustomValidity(pwd.value !== cfm.value ? 'Passwords do not match' : ''); 
+          }
+          if(!form.checkValidity()){ 
+            event.preventDefault(); 
+            event.stopPropagation(); 
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    } catch (e) { console.warn('Form validation error:', e); }
+    
+    // AJAX Login
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+      loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!this.checkValidity()) {
+          this.classList.add('was-validated');
+          return;
+        }
+        
+        const submitBtn = document.getElementById('loginSubmitBtn');
+        const originalText = submitBtn.innerHTML;
+        const errorDiv = document.getElementById('loginError');
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Signing in...';
+        errorDiv.style.display = 'none';
+        
+        try {
+          const formData = new FormData(this);
+          const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (data.ok) {
+            // Success - redirect to dashboard (force HTTP in development)
+            let redirectUrl = data.redirect || '/dashboard/user';
+            if (redirectUrl.startsWith('https://localhost')) {
+              redirectUrl = redirectUrl.replace('https://', 'http://');
+            }
+            window.location.href = redirectUrl;
+          } else {
+            // Show error
+            errorDiv.textContent = data.error || 'Login failed. Please try again.';
+            errorDiv.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Login error:', error);
+          errorDiv.textContent = 'Network error. Please try again.';
+          errorDiv.style.display = 'block';
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+      });
+    }
+    
+    // AJAX Signup
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+      signupForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!this.checkValidity()) {
+          this.classList.add('was-validated');
+          return;
+        }
+        
+        const submitBtn = document.getElementById('signupSubmitBtn');
+        const originalText = submitBtn.innerHTML;
+        const errorDiv = document.getElementById('signupError');
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Creating account...';
+        errorDiv.style.display = 'none';
+        
+        try {
+          const formData = new FormData(this);
+          const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (data.ok) {
+            // Success - redirect to dashboard (force HTTP in development)
+            let redirectUrl = data.redirect || '/dashboard/user';
+            if (redirectUrl.startsWith('https://localhost')) {
+              redirectUrl = redirectUrl.replace('https://', 'http://');
+            }
+            window.location.href = redirectUrl;
+          } else {
+            // Show error
+            errorDiv.textContent = data.error || 'Registration failed. Please try again.';
+            errorDiv.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Signup error:', error);
+          errorDiv.textContent = 'Network error. Please try again.';
+          errorDiv.style.display = 'block';
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+      });
+    }
+  });
+})();
+</script>
+
+<script>
+// Tab switching functions (manual fallback)
+function switchToSignup() {
+  try {
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
+    const loginPane = document.getElementById('pane-login');
+    const signupPane = document.getElementById('pane-signup');
+    
+    if (loginTab && signupTab && loginPane && signupPane) {
+      loginTab.classList.remove('active');
+      signupTab.classList.add('active');
+      loginPane.classList.remove('show', 'active');
+      signupPane.classList.add('show', 'active');
+      
+      // Clear any errors
+      document.getElementById('loginError').style.display = 'none';
+    }
+  } catch (e) { console.warn('Tab switch error:', e); }
+}
+
+function switchToLogin() {
+  try {
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
+    const loginPane = document.getElementById('pane-login');
+    const signupPane = document.getElementById('pane-signup');
+    
+    if (loginTab && signupTab && loginPane && signupPane) {
+      loginTab.classList.add('active');
+      signupTab.classList.remove('active');
+      loginPane.classList.add('show', 'active');
+      signupPane.classList.remove('show', 'active');
+      
+      // Clear any errors
+      document.getElementById('signupError').style.display = 'none';
+    }
+  } catch (e) { console.warn('Tab switch error:', e); }
+}
+
+// Check for referral code in URL
+(function() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) {
+      console.log('Referral code:', ref);
+      const hiddenRef = document.createElement('input');
+      hiddenRef.type = 'hidden';
+      hiddenRef.name = 'ref';
+      hiddenRef.value = ref;
+      document.getElementById('signupForm').appendChild(hiddenRef);
+    }
+  } catch (e) { console.warn('Referral code error:', e); }
+})();
+</script>
+
+<%- include('../partials/footer') %>

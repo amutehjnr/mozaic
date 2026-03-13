@@ -1,0 +1,106 @@
+const express = require('express');
+const router = express.Router();
+const { body } = require('express-validator');
+const authController = require('../../controllers/authController');
+const { csrfProtection } = require('../../middleware/csrf');
+const { validate } = require('../../middleware/validation');
+const { isAuthenticated, isGuest } = require('../../middleware/auth');
+const rateLimiter = require('../../middleware/rateLimiter');
+const { handleMultipart } = require('../../middleware/multer');
+
+/**
+ * Validation rules
+ */
+const registerValidation = [
+    body('name').notEmpty().withMessage('Name is required').trim(),
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('phone').optional().isMobilePhone('any').withMessage('Valid phone number is required')
+];
+
+const loginValidation = [
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+    body('password').notEmpty().withMessage('Password is required')
+];
+
+const forgotValidation = [
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail()
+];
+
+const resetValidation = [
+    body('token').notEmpty().withMessage('Token is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('confirm').custom((value, { req }) => {
+        if (value !== req.body.password) {
+            throw new Error('Passwords do not match');
+        }
+        return true;
+    })
+];
+
+/**
+ * Guest routes (only accessible when not logged in)
+ */
+router.get('/login', isGuest, authController.showAuthPage);
+router.get('/forgot', isGuest, authController.showForgotPage);
+router.get('/reset', isGuest, authController.showResetPage);
+
+/**
+ * POST routes with CSRF protection
+ */
+router.post('/register', 
+    handleMultipart,
+    isGuest,
+    rateLimiter.auth,
+    csrfProtection,
+    validate(registerValidation),
+    authController.registerWeb
+);
+
+router.post('/login', 
+    handleMultipart,
+    isGuest,
+    rateLimiter.auth,
+    csrfProtection,
+    validate(loginValidation),
+    authController.loginWeb
+);
+
+router.post('/forgot', 
+    handleMultipart,
+    isGuest,
+    rateLimiter.auth,
+    csrfProtection,
+    validate(forgotValidation),
+    authController.forgotWeb
+);
+
+router.post('/reset', 
+    isGuest,
+    rateLimiter.auth,
+    csrfProtection,
+    validate(resetValidation),
+    authController.resetPasswordWeb
+);
+
+/**
+ * Logout (accessible when authenticated)
+ */
+router.post('/logout', 
+    isAuthenticated,
+    csrfProtection,
+    authController.logoutWeb
+);
+
+/**
+ * Email verification (to be implemented)
+ */
+router.get('/verify-email', isAuthenticated, (req, res) => {
+    res.render('auth/verify-email', {
+        title: 'Verify Email',
+    });
+});
+
+router.get('/verify-email/:token', isAuthenticated, authController.verifyEmail);
+
+module.exports = router;

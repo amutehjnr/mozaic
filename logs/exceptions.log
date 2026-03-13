@@ -1,0 +1,240 @@
+2026-03-12 03:22:13:2213 [31merror[39m: [31muncaughtException: collection or collectionName and uri should be set[39m
+[31mError: collection or collectionName and uri should be set[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\rate-limit-mongo\lib\mongoStore.js:28:9)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\middleware\rateLimiter.js:19:13)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+2026-03-12 03:27:20:2720 [31merror[39m: [31muncaughtException: collection or collectionName and uri should be set[39m
+[31mError: collection or collectionName and uri should be set[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\rate-limit-mongo\lib\mongoStore.js:28:9)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\middleware\rateLimiter.js:19:13)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+2026-03-12 05:42:16:4216 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:110:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 05:44:54:4454 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:110:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 05:48:16:4816 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:110:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 05:56:29:5629 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:110:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 06:06:55:655 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:110:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:48:31:4831 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:51:03:513 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:51:26:5126 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:52:21:5221 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:52:32:5232 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 10:53:54:5354 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 11:02:02:22 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 11:02:10:210 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 11:02:47:247 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 11:05:15:515 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:8:13)[39m
+2026-03-12 11:05:37:537 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:124:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:8:13)[39m
+2026-03-12 11:09:11:911 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m
+2026-03-12 11:12:39:1239 [31merror[39m: [31muncaughtException: Cannot read properties of undefined (reading 'api')[39m
+[31mTypeError: Cannot read properties of undefined (reading 'api')[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:111:30)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+[31m    at Function._load (node:internal/modules/cjs/loader:1123:12)[39m
+[31m    at TracingChannel.traceSync (node:diagnostics_channel:322:14)[39m
+[31m    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)[39m
+[31m    at Module.require (node:internal/modules/cjs/loader:1335:12)[39m
+[31m    at require (node:internal/modules/helpers:136:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\server.js:3:13)[39m

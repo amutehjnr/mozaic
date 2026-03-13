@@ -1,0 +1,251 @@
+<%
+// Make the body a column so footer stays below content.
+// flex-column + min-vh-100 makes the page full height and a column layout.
+// The main area below uses flex-fill to take remaining space so footer is pushed to bottom.
+bodyClass = 'jn-dark d-flex flex-column min-vh-100';
+%>
+<%- include('../partials/header') %>
+
+<main class="flex-fill d-flex align-items-center">
+  <div class="container" style="max-width:560px;">
+    <div class="card p-4 p-md-5">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="mb-0 fw-bold">Forgot password</h4>
+        <a class="small" href="/auth"><i class="bi bi-arrow-left"></i> Back</a>
+      </div>
+
+      <!-- Flash Messages -->
+      <% if (messages && messages.error) { %>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <%= messages.error %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      <% } %>
+      
+      <% if (messages && messages.success) { %>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <i class="bi bi-check-circle-fill me-2"></i>
+          <%= messages.success %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      <% } %>
+
+      <p class="text-muted">Enter your email and we'll send you a reset link.</p>
+
+      <form id="forgotForm" class="row g-3 needs-validation" novalidate method="POST" action="/auth/forgot">
+        <!-- explicit CSRF token -->
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="col-12">
+          <label class="form-label">Email</label>
+          <input id="email" type="email" class="form-control" name="email" value="<%= formData?.email || '' %>" required>
+          <div class="invalid-feedback">Enter a valid email.</div>
+          <small class="form-text text-muted">We'll send a password reset link to this email.</small>
+        </div>
+
+        <div class="col-12 d-grid">
+          <button id="submitBtn" class="btn btn-theme btn-lg" type="submit">
+            <i class="bi bi-envelope-check me-1"></i>
+            Send reset link
+          </button>
+        </div>
+
+        <div class="col-12 text-center small">
+          <a href="/auth">Back to login</a> • <a href="/auth/otp">Reset via phone</a>
+        </div>
+      </form>
+      
+      <!-- Success Message Container (for AJAX) -->
+      <div id="successMessage" class="alert alert-success mt-3" style="display: none;"></div>
+      
+      <!-- Error Message Container (for AJAX) -->
+      <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;"></div>
+    </div>
+  </div>
+</main>
+
+<style>
+/* Loading spinner animation */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Success animation */
+@keyframes checkmark {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.bi-check-circle-fill {
+  animation: checkmark 0.3s ease-in-out;
+}
+</style>
+
+<script>
+/*
+  Client-side-enhanced submit:
+  - Keeps native validation
+  - Submits via fetch
+  - Shows toasts via window.flash (if available)
+  - Disables button while processing
+  - Handles both API and web responses
+*/
+(function(){
+  const form = document.getElementById('forgotForm');
+  const btn  = document.getElementById('submitBtn');
+  const successDiv = document.getElementById('successMessage');
+  const errorDiv = document.getElementById('errorMessage');
+  const emailInput = document.getElementById('email');
+
+  function showMsg(type, msg) {
+    // Hide both containers first
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    if (type === 'success') {
+      successDiv.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${msg}`;
+      successDiv.style.display = 'block';
+      
+      // Clear any previous errors
+      emailInput.classList.remove('is-invalid');
+    } else {
+      errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+      errorDiv.style.display = 'block';
+      
+      // Highlight email field if it's an email error
+      if (msg.toLowerCase().includes('email')) {
+        emailInput.classList.add('is-invalid');
+      }
+    }
+    
+    // Use toast if available (from footer)
+    if (window.flash && typeof window.flash === 'function') {
+      window.flash(type, msg);
+    }
+  }
+
+  // Email validation on input
+  emailInput.addEventListener('input', function() {
+    if (this.classList.contains('is-invalid')) {
+      if (this.checkValidity()) {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+      }
+    }
+  });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    
+    // Native validation
+    if (!form.checkValidity()) {
+      form.classList.add('was-validated');
+      return;
+    }
+
+    // Disable button and show loading state
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
+    btn.classList.add('btn-loading');
+
+    try {
+      const fd = new FormData(form);
+
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error('JSON parse error:', err);
+        // Try to get response as text
+        const text = await res.text();
+        throw new Error(text || 'Invalid response from server');
+      }
+
+      if (!res.ok || (data && (data.ok === false || data.error))) {
+        const msg = (data && (data.error || data.message)) || `Request failed (${res.status})`;
+        showMsg('error', msg);
+        return;
+      }
+
+      // Success!
+      const successMsg = data.message || 'Reset link sent! Check your email.';
+      showMsg('success', successMsg);
+
+      // Optionally clear form
+      form.reset();
+      form.classList.remove('was-validated');
+      
+      // Remove validation classes
+      emailInput.classList.remove('is-valid', 'is-invalid');
+      
+      // Disable form for 60 seconds to prevent spam
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Link Sent!';
+      
+      // Re-enable after 60 seconds
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }, 60000);
+      
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      showMsg('error', err.message || 'Network error. Please try again.');
+    } finally {
+      // Remove loading class but keep disabled state if success
+      btn.classList.remove('btn-loading');
+      if (!btn.disabled) {
+        btn.innerHTML = original;
+      }
+    }
+  });
+
+  // Enhance UX: validate on input to clear the error state
+  form.querySelectorAll('input,textarea,select').forEach(el => {
+    el.addEventListener('input', () => {
+      if (form.classList.contains('was-validated')) {
+        if (el.checkValidity()) {
+          el.classList.remove('is-invalid');
+          el.classList.add('is-valid');
+        } else {
+          el.classList.remove('is-valid');
+          el.classList.add('is-invalid');
+        }
+      }
+    });
+  });
+  
+  // Check for email in URL params (for prefilling)
+  (function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get('email');
+    if (email) {
+      emailInput.value = email;
+    }
+  })();
+})();
+</script>
+
+<%- include('../partials/footer') %>

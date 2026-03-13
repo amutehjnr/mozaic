@@ -1,0 +1,912 @@
+<%
+const user = typeof userData !== 'undefined' ? userData : { id: 0, name: '', email: '' };
+const transactions = typeof transactionsData !== 'undefined' ? transactionsData : [];
+const pagination = typeof paginationData !== 'undefined' ? paginationData : { page: 1, pages: 1, total: 0 };
+
+// Read filters from query params
+const query = typeof queryParams !== 'undefined' ? queryParams : {};
+const type = query.type || '';
+const status = query.status || '';
+const from = query.from || '';
+const to = query.to || '';
+const page = Math.max(1, parseInt(query.page) || 1);
+
+// Format helpers
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-NG', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+const formatDateShort = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr.substring(0, 10);
+    return date.toISOString().split('T')[0];
+};
+
+const formatNaira = (amount) => {
+    return '₦' + Number(amount).toLocaleString('en-NG', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+};
+
+const getStatusBadgeClass = (status) => {
+    const classes = {
+        'success': 'badge-soft-success',
+        'pending': 'badge-soft-warning',
+        'failed': 'badge-soft-danger',
+        'processing': 'badge-soft-info',
+        'refunded': 'badge-soft-secondary',
+        'reversed': 'badge-soft-dark'
+    };
+    return classes[status?.toLowerCase()] || 'badge-soft-secondary';
+};
+
+// Helper to keep query params in pagination links
+const qkeep = (overrides) => {
+    const q = { ...query };
+    Object.assign(q, overrides);
+    const params = new URLSearchParams();
+    Object.keys(q).forEach(k => {
+        if (q[k] && q[k] !== '') params.append(k, q[k]);
+    });
+    return '?' + params.toString();
+};
+
+// Transaction normalizers (using actual data structure)
+const normType = (t) => {
+    if (t.type) return t.type.charAt(0).toUpperCase() + t.type.slice(1);
+    if (t.provider) return t.provider.charAt(0).toUpperCase() + t.provider.slice(1);
+    return '-';
+};
+
+const normStatus = (t) => {
+    return t.status || 'unknown';
+};
+
+const normAmount = (t) => {
+    return t.amount || 0;
+};
+
+const normDate = (t) => {
+    return t.created_at || t.createdAt || '';
+};
+
+const normRef = (t) => {
+    return t.reference || t.ref || `TXN-${t.id}`;
+};
+
+const normDetails = (t) => {
+    const parts = [];
+    
+    // Add main identifiers
+    if (t.provider) parts.push(t.provider.toUpperCase());
+    if (t.account_target) parts.push(t.account_target);
+    if (t.plan_code) parts.push(t.plan_code);
+    
+    // Add from metadata
+    if (t.metadata) {
+        try {
+            const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+            if (meta.phone) parts.push(meta.phone);
+            if (meta.smartcard) parts.push(meta.smartcard);
+            if (meta.meterNo) parts.push(meta.meterNo);
+            if (meta.network) parts.push(meta.network.toUpperCase());
+        } catch (e) {}
+    }
+    
+    // Add description
+    if (t.details) parts.push(t.details);
+    
+    return parts.length ? parts.join(' • ') : '—';
+};
+%>
+<%- include('../../partials/header') %>
+
+<style>
+  :root {
+    --jn-primary: #EF5134;
+    --jn-primary-600: #e3472b;
+  }
+
+  body {
+    background: #f8fafc;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .navbar {
+    background: rgba(11, 18, 32, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 0;
+  }
+
+  .navbar-brand {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: white !important;
+  }
+
+  .navbar-brand span {
+    color: var(--jn-primary);
+  }
+
+  #header {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+  }
+
+  #header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, rgba(11,18,32,0.95), rgba(11,18,32,0.7));
+  }
+
+  #header .container {
+    position: relative;
+    z-index: 1;
+    color: white;
+  }
+
+  .card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .btn-theme {
+    background: var(--jn-primary);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    color: white;
+    transition: all 0.2s;
+  }
+
+  .btn-theme:hover {
+    background: var(--jn-primary-600);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239,81,52,0.3);
+  }
+
+  .btn-outline-dark {
+    border-radius: 10px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+  }
+
+  .form-control, .form-select {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 0.6rem 1rem;
+  }
+
+  .form-control:focus, .form-select:focus {
+    border-color: var(--jn-primary);
+    box-shadow: 0 0 0 3px rgba(239,81,52,0.15);
+  }
+
+  .badge-soft {
+    padding: 0.35rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .badge-soft-success {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .badge-soft-warning {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+
+  .badge-soft-danger {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .badge-soft-info {
+    background: #e0f2fe;
+    color: #075985;
+  }
+
+  .badge-soft-secondary {
+    background: #f1f5f9;
+    color: #334155;
+  }
+
+  .badge-soft-dark {
+    background: #1e293b;
+    color: #f8fafc;
+  }
+
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 1rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .table td {
+    padding: 1rem;
+    vertical-align: middle;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .table tr:hover td {
+    background: #f8fafc;
+  }
+
+  .pagination {
+    gap: 0.25rem;
+  }
+
+  .page-link {
+    border: none;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.9rem;
+    color: #475569;
+    font-weight: 500;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .page-link:hover {
+    background: #f1f5f9;
+    color: var(--jn-primary);
+  }
+
+  .page-item.active .page-link {
+    background: var(--jn-primary);
+    color: white;
+  }
+
+  .page-item.disabled .page-link {
+    background: #f1f5f9;
+    color: #94a3b8;
+    pointer-events: none;
+  }
+
+  .filter-section {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .summary-stats {
+    background: linear-gradient(135deg, #0b1220, #1a2639);
+    color: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--jn-primary);
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  @media (max-width: 768px) {
+    .table {
+      font-size: 0.9rem;
+    }
+    
+    .btn {
+      padding: 0.4rem 1rem;
+      font-size: 0.9rem;
+    }
+    
+    .stat-value {
+      font-size: 1.4rem;
+    }
+  }
+
+  /* Loading spinner */
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #94a3b8;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  /* Export button loading state */
+  .btn-export-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+</style>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container">
+    <a class="navbar-brand" href="/"><span>Moz</span>Aic</a>
+    <button class="navbar-toggler text-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/user">Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="/dashboard/history">History</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/referrals">Referrals</a>
+        </li>
+      </ul>
+      <div class="d-flex gap-2">
+        <span class="stat-pill d-none d-md-block">
+          <i class="bi bi-person-circle me-1"></i>
+          <%= user.name || user.email %>
+        </span>
+        <form method="POST" action="/auth/logout" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-box-arrow-right me-1"></i> Logout
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<header id="header">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="fw-bold mb-2">Transaction History</h1>
+        <p class="lead mb-0 opacity-75">View, filter, and export all your transactions</p>
+      </div>
+      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <button class="btn btn-theme" onclick="exportCSV()" id="exportBtn">
+          <i class="bi bi-download me-1"></i> Export CSV
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="section py-4">
+  <div class="container">
+
+    <!-- Summary Stats -->
+    <div class="summary-stats">
+      <div class="row g-4">
+        <div class="col-6 col-md-3">
+          <div class="stat-item">
+            <div class="stat-value"><%= formatNaira(transactions.reduce((sum, t) => sum + (t.amount > 0 ? t.amount : 0), 0)) %></div>
+            <div class="stat-label">Total Credits</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-item">
+            <div class="stat-value"><%= formatNaira(Math.abs(transactions.reduce((sum, t) => sum + (t.amount < 0 ? t.amount : 0), 0))) %></div>
+            <div class="stat-label">Total Debits</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-item">
+            <div class="stat-value"><%= transactions.length %></div>
+            <div class="stat-label">Total Transactions</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-item">
+            <div class="stat-value"><%= transactions.filter(t => t.status === 'success').length %></div>
+            <div class="stat-label">Successful</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-section">
+      <h5 class="fw-bold mb-3">
+        <i class="bi bi-funnel me-2 text-primary"></i>
+        Filter Transactions
+      </h5>
+      <form class="row g-3" method="GET" action="/dashboard/history" id="filterForm">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Transaction Type</label>
+          <select class="form-select" name="type">
+            <option value="">All Types</option>
+            <option value="credit" <%= type === 'credit' ? 'selected' : '' %>>Credits (Funding)</option>
+            <option value="debit" <%= type === 'debit' ? 'selected' : '' %>>Debits (Payments)</option>
+            <option value="data" <%= type === 'data' ? 'selected' : '' %>>Data Purchase</option>
+            <option value="airtime" <%= type === 'airtime' ? 'selected' : '' %>>Airtime Purchase</option>
+            <option value="electricity" <%= type === 'electricity' ? 'selected' : '' %>>Electricity</option>
+            <option value="tv" <%= type === 'tv' ? 'selected' : '' %>>TV Subscription</option>
+            <option value="withdrawal" <%= type === 'withdrawal' ? 'selected' : '' %>>Withdrawal</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Status</label>
+          <select class="form-select" name="status">
+            <option value="">All Statuses</option>
+            <option value="success" <%= status === 'success' ? 'selected' : '' %>>Successful</option>
+            <option value="pending" <%= status === 'pending' ? 'selected' : '' %>>Pending</option>
+            <option value="failed" <%= status === 'failed' ? 'selected' : '' %>>Failed</option>
+            <option value="processing" <%= status === 'processing' ? 'selected' : '' %>>Processing</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">From Date</label>
+          <input type="date" class="form-control" name="from" value="<%= from %>" max="<%= new Date().toISOString().split('T')[0] %>">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">To Date</label>
+          <input type="date" class="form-control" name="to" value="<%= to %>" max="<%= new Date().toISOString().split('T')[0] %>">
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="d-flex gap-2 w-100">
+            <button type="submit" class="btn btn-theme flex-grow-1">
+              <i class="bi bi-search me-1"></i> Apply
+            </button>
+            <a href="/dashboard/history" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i>
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Type</th>
+              <th>Details</th>
+              <th>Status</th>
+              <th class="text-end">Amount</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (rows.length === 0) { %>
+              <tr>
+                <td colspan="6">
+                  <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h6 class="mt-3">No transactions found</h6>
+                    <p class="text-muted mb-0">Try adjusting your filters or make your first transaction</p>
+                  </div>
+                </td>
+              </tr>
+            <% } else { 
+              rows.forEach(t => { 
+                const amount = normAmount(t);
+                const isCredit = t.type === 'credit' || amount > 0;
+            %>
+                <tr>
+                  <td>
+                    <div class="fw-semibold"><%= formatDate(normDate(t)) %></div>
+                    <small class="text-muted"><%= normRef(t) %></small>
+                  </td>
+                  <td>
+                    <span class="badge-soft"><%= normType(t) %></span>
+                  </td>
+                  <td class="small">
+                    <%= normDetails(t) %>
+                  </td>
+                  <td>
+                    <span class="badge-soft <%= getStatusBadgeClass(t.status) %>">
+                      <%= t.status?.charAt(0).toUpperCase() + t.status?.slice(1) || 'Unknown' %>
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <span class="fw-bold <%= isCredit ? 'text-success' : 'text-danger' %>">
+                      <%= isCredit ? '+' : '-' %> <%= formatNaira(Math.abs(amount)) %>
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                          <a class="dropdown-item" href="/receipt?ref=<%= encodeURIComponent(normRef(t)) %>">
+                            <i class="bi bi-receipt me-2"></i> View Receipt
+                          </a>
+                        </li>
+                        <% if (t.status === 'pending') { %>
+                        <li>
+                          <button class="dropdown-item" onclick="requeryTransaction('<%= normRef(t) %>')">
+                            <i class="bi bi-arrow-repeat me-2"></i> Requery
+                          </button>
+                        </li>
+                        <% } %>
+                        <li>
+                          <button class="dropdown-item" onclick="downloadReceipt('<%= normRef(t) %>')">
+                            <i class="bi bi-download me-2"></i> Download PDF
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+            <% }); } %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <% if (pages > 1) { %>
+      <div class="card-footer bg-white d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+        <small class="text-muted">
+          Showing <span class="fw-semibold"><%= rows.length %></span> of 
+          <span class="fw-semibold"><%= total %></span> transactions
+        </small>
+
+        <nav aria-label="Transaction pagination">
+          <ul class="pagination mb-0">
+            <li class="page-item <%= currentPage <= 1 ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= currentPage <= 1 ? '#' : qkeep({page: currentPage - 1}) %>" aria-label="Previous">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+            
+            <% 
+              let startPage = Math.max(1, currentPage - 2);
+              let endPage = Math.min(pages, startPage + 4);
+              if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+              }
+              
+              if (startPage > 1) { 
+            %>
+              <li class="page-item"><a class="page-link" href="<%= qkeep({page: 1}) %>">1</a></li>
+              <% if (startPage > 2) { %>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              <% }
+            }
+            
+            for (let p = startPage; p <= endPage; p++) { %>
+              <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+                <a class="page-link" href="<%= qkeep({page: p}) %>"><%= p %></a>
+              </li>
+            <% }
+            
+            if (endPage < pages) { 
+              if (endPage < pages - 1) { %>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              <% } %>
+              <li class="page-item"><a class="page-link" href="<%= qkeep({page: pages}) %>"><%= pages %></a></li>
+            <% } %>
+            
+            <li class="page-item <%= currentPage >= pages ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= currentPage >= pages ? '#' : qkeep({page: currentPage + 1}) %>" aria-label="Next">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+      <% } %>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-3 mt-2">
+      <div class="col-md-6">
+        <div class="card p-3">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-question-circle fs-1 text-primary opacity-50"></i>
+            <div>
+              <h6 class="fw-bold mb-1">Need help with a transaction?</h6>
+              <p class="small text-muted mb-2">If a transaction is stuck or failed, you can requery it.</p>
+              <a href="/dashboard/requery" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-arrow-repeat me-1"></i> Go to Requery
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-download fs-1 text-success opacity-50"></i>
+            <div>
+              <h6 class="fw-bold mb-1">Download Statement</h6>
+              <p class="small text-muted mb-2">Get a complete statement of all your transactions.</p>
+              <button class="btn btn-sm btn-outline-success" onclick="exportCSV()">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Requery Modal -->
+<div class="modal fade" id="requeryModal" tabindex="-1" aria-labelledby="requeryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="requeryModalLabel">
+          <i class="bi bi-arrow-repeat me-2 text-primary"></i>
+          Requery Transaction
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to requery this transaction?</p>
+        <p class="small text-muted mb-0">Reference: <span id="requeryRef" class="fw-semibold"></span></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmRequery">Requery Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Transaction data for export
+const exportData = <%- JSON.stringify(rows.map(t => ({
+    date: formatDateShort(normDate(t)),
+    type: normType(t),
+    details: normDetails(t),
+    status: t.status,
+    amount: normAmount(t),
+    reference: normRef(t)
+}))) %>;
+
+/**
+ * Export transactions to CSV
+ */
+async function exportCSV() {
+    const btn = document.getElementById('exportBtn');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Exporting...';
+    
+    try {
+        // Create CSV content
+        let csv = 'Date,Type,Details,Status,Amount,Reference\n';
+        
+        exportData.forEach(row => {
+            const line = [
+                row.date,
+                row.type,
+                row.details,
+                row.status,
+                row.amount,
+                row.reference
+            ].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',');
+            
+            csv += line + '\n';
+        });
+        
+        // Create and download file
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // Add BOM for UTF-8
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        a.href = url;
+        a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show success message
+        showToast('Export completed successfully', 'success');
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Export failed: ' + error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'success') {
+    // Create toast container if it doesn't exist
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = '1060';
+        document.body.appendChild(container);
+    }
+    
+    // Create toast element
+    const toastId = 'toast-' + Date.now();
+    const toastHtml = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 5000
+    });
+    
+    toast.show();
+    
+    // Remove toast after hidden
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+/**
+ * Requery transaction
+ */
+let currentRequeryRef = '';
+
+function requeryTransaction(reference) {
+    currentRequeryRef = reference;
+    document.getElementById('requeryRef').textContent = reference;
+    
+    const modal = new bootstrap.Modal(document.getElementById('requeryModal'));
+    modal.show();
+}
+
+document.getElementById('confirmRequery')?.addEventListener('click', async () => {
+    const btn = document.getElementById('confirmRequery');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+    
+    try {
+        const formData = new FormData();
+        formData.append('_csrf', '<%= csrfToken %>');
+        formData.append('reference', currentRequeryRef);
+        
+        const response = await fetch('/api/wallet/requery', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Requery failed');
+        }
+        
+        showToast('Transaction requeried successfully', 'success');
+        
+        // Close modal and reload after 2 seconds
+        setTimeout(() => {
+            bootstrap.Modal.getInstance(document.getElementById('requeryModal')).hide();
+            window.location.reload();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Requery error:', error);
+        showToast(error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+/**
+ * Download receipt (placeholder - would generate PDF)
+ */
+function downloadReceipt(reference) {
+    showToast('Receipt download feature coming soon', 'info');
+}
+
+/**
+ * Validate date range
+ */
+document.getElementById('filterForm')?.addEventListener('submit', (e) => {
+    const from = document.querySelector('[name="from"]').value;
+    const to = document.querySelector('[name="to"]').value;
+    
+    if (from && to && from > to) {
+        e.preventDefault();
+        showToast('"From" date cannot be after "To" date', 'danger');
+    }
+});
+
+/**
+ * Auto-submit on filter change (optional - uncomment if desired)
+ */
+// document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(el => {
+//     el.addEventListener('change', () => {
+//         document.getElementById('filterForm').submit();
+//     });
+// });
+
+/**
+ * Clear URL params on page load if they exist
+ */
+if (window.location.search) {
+    // Store the params for display but we keep them for filtering
+    console.log('Active filters:', '<%= JSON.stringify(query) %>');
+}
+
+// Initialize tooltips
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el);
+});
+</script>
+
+<%- include('../../partials/footer') %>

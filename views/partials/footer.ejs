@@ -1,0 +1,204 @@
+<%
+  // Flash messages from session (will be passed from server)
+  const flashes = typeof flashMessages !== 'undefined' ? flashMessages : [];
+%>
+  <!-- FOOTER -->
+  <footer class="pt-5 pb-4">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <h5 class="text-white fw-bold">Moz<span style="color:#EF5134">Aic</span></h5>
+          <p class="mb-2">Fast, secure and affordable utilities in one place.</p>
+          <div class="d-flex gap-2">
+            <a href="#" aria-label="Twitter"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <h6 class="text-white">Product</h6>
+          <ul class="list-unstyled small">
+            <li><a href="#services">Services</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="/dashboard/user">Dashboard</a></li>
+          </ul>
+        </div>
+        <div class="col-6 col-md-2">
+          <h6 class="text-white">Company</h6>
+          <ul class="list-unstyled small">
+            <li><a href="/about">About</a></li>
+            <li><a href="/blog">Blog</a></li>
+            <li><a href="/careers">Careers</a></li>
+          </ul>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-white">Get updates</h6>
+          <form class="d-flex gap-2" onsubmit="event.preventDefault(); alert('Thanks! We\'ll keep you posted.');">
+            <input type="email" class="form-control" placeholder="Email address" required />
+            <button class="btn btn-cta" type="submit">Subscribe</button>
+          </form>
+          <small class="text-muted d-block mt-2">By subscribing you agree to our Terms and Privacy Policy.</small>
+        </div>
+      </div>
+      <hr class="border-secondary my-4" />
+      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-center gap-2">
+        <small class="text-muted">© <span id="y"></span> MozAic. All rights reserved.</small>
+        <div class="small">
+          <a href="/terms" class="me-3">Terms</a>
+          <a href="/privacy">Privacy</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast container -->
+  <div id="toastArea" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1080;"></div>
+
+  <!-- Bootstrap (load once, here) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap bundle (includes Popper) — load once, in footer -->
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="" crossorigin="anonymous"></script>
+
+<!-- Safe init for dropdowns (idempotent) + small global helper -->
+<script>
+  (function () {
+    // Avoid double-initializing if footer is accidentally included twice
+    if (window.__MOZAIC_BOOTSTRAP_INIT__) return;
+    window.__MOZAIC_BOOTSTRAP_INIT__ = true;
+
+    function initDropdowns() {
+      if (typeof bootstrap === 'undefined') return;
+      document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+        // mark it so we don't re-initialize the same node twice
+        if (!el.dataset.bsInited) {
+          try { new bootstrap.Dropdown(el); } catch (e) { /* ignore */ }
+          el.dataset.bsInited = '1';
+        }
+      });
+    }
+
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDropdowns);
+    } else {
+      initDropdowns();
+    }
+
+    // Re-run after small delay in case other scripts modify DOM
+    setTimeout(initDropdowns, 500);
+  })();
+</script>
+
+  <script>
+    // Current year
+    (function(){ const y=document.getElementById('y'); if(y) y.textContent=new Date().getFullYear(); })();
+
+    // Flash toasts
+    (function(){
+      window.__MOZAIC_FOOTER__ = window.__MOZAIC_FOOTER__ || {};
+      if (window.__MOZAIC_FOOTER__.booted) return;
+      window.__MOZAIC_FOOTER__.booted = true;
+
+      const area = document.getElementById('toastArea');
+      const cls  = { success: 'text-bg-success', error: 'text-bg-danger', info: 'text-bg-primary', warning: 'text-bg-warning' };
+      const icon = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', info: 'bi-info-circle-fill', warning: 'bi-exclamation-triangle-fill' };
+
+      window.flash = function (type, message, delay = 4000) {
+        const el = document.createElement('div');
+        el.className = `toast align-items-center ${cls[type] || 'text-bg-dark'}`;
+        el.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body d-flex align-items-center gap-2">
+              <i class="bi ${icon[type] || 'bi-bell-fill'}"></i>
+              <span>${message}</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>`;
+        area.appendChild(el);
+        new bootstrap.Toast(el, { delay, autohide: true }).show();
+      };
+
+      // Server-side flashes (if any)
+      (<%- JSON.stringify(flashes) %> || [])
+        .forEach(f => window.flash(f.type, f.message));
+    })();
+
+    // Optional: simple counter animation for elements with [data-count]
+    (function(){
+      const els = document.querySelectorAll('[data-count]');
+      if (!els.length) return;
+      const io = new IntersectionObserver((entries)=>{
+        entries.forEach((e)=>{
+          if (!e.isIntersecting) return;
+          const el = e.target;
+          const goal = parseFloat(el.dataset.count);
+          const isSeconds = (el.textContent.trim().toLowerCase().endsWith('s'));
+          let cur = 0;
+          const step = goal / 40; // ~40 frames
+
+          const int = setInterval(()=>{
+            cur += step;
+            if (cur >= goal) { cur = goal; clearInterval(int); }
+            el.textContent = isSeconds ? Math.round(cur)+'s'
+              : (Number.isInteger(goal) ? Math.round(cur) : cur.toFixed(1));
+
+            if (el.nextElementSibling && el.nextElementSibling.textContent.includes('top-ups') && cur === goal) {
+              el.textContent = goal + 'k+';
+            }
+            if (el.nextElementSibling && el.nextElementSibling.textContent.includes('Uptime') && cur === goal) {
+              el.textContent = goal + '%';
+            }
+          }, 30);
+
+          io.unobserve(el);
+        });
+      }, { threshold: .6 });
+      els.forEach(el => io.observe(el));
+    })();
+
+    // Minimal API helper (CSRF + /api/* form submits)
+    (function(){
+      window.API = window.API || {
+        csrf: "<%= url('/api/csrf') %>",
+        redirectAfterAuth: "<%= url('/dashboard/user') %>",
+      };
+
+      // Inject CSRF into forms when available
+      fetch(API.csrf).then(r=>r.json()).then(({token})=>{
+        document.querySelectorAll('form').forEach(f=>{
+          if(!f.querySelector('input[name="csrf_token"]')){
+            const i=document.createElement('input'); i.type='hidden'; i.name='csrf_token'; i.value=token; f.appendChild(i);
+          }
+        });
+      }).catch(()=>{ /* ignore first paint */ });
+
+      // Intercept forms that post to /api/*
+      document.addEventListener('submit', async (e) => {
+        const f = e.target;
+        if (f.tagName !== 'FORM') return;
+        const action = (f.getAttribute('action') || '').toLowerCase();
+        if (!action.includes('/api/')) return;
+
+        e.preventDefault();
+        try {
+          const resp = await fetch(action, { method: (f.method || 'POST').toUpperCase(), body: new FormData(f) });
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok && data && (data.ok || !data.error)) {
+            if (action.includes('/api/auth/')) {
+              window.flash('success', 'Welcome 👋');
+              setTimeout(()=>{ location.href = API.redirectAfterAuth; }, 400);
+            } else {
+              window.flash('success', data.message || 'Done ✅');
+            }
+          } else {
+            window.flash('error', (data && (data.error || data.message)) || 'Action failed');
+          }
+        } catch {
+          window.flash('error', 'Network error');
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>

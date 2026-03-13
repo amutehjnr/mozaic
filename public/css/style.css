@@ -1,0 +1,415 @@
+/*
+  JoNet — Signup Theme (v4)
+  One stylesheet that makes ALL pages look exactly like signup.htm
+  Source of truth for design tokens & components is signup.htm.
+  Load AFTER Bootstrap & Icons on every page.
+*/
+
+/* -------------------- Tokens (copied from signup.htm) -------------------- */
+:root{
+  --jn-font:'Poppins',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; /* signup.htm */
+  --jn-primary:#EF5134;       /* brand */
+  --jn-primary-600:#e3472b;   /* hover */
+  --jn-bg:#0f172a;            /* slate-900 */
+  --jn-surface:#ffffff;       /* cards/forms surface */
+  --jn-muted:#64748b;         /* slate-500 */
+  --jn-border:#e5e7eb;        /* gray-200 */
+  --jn-shadow-lg:0 24px 48px rgba(2,6,23,.15);
+  --jn-shadow-sm:0 1px 3px rgba(2,6,23,.12),0 1px 2px rgba(2,6,23,.06);
+}
+
+/* -------------------- Base -------------------- */
+html,body{height:100%}
+body{
+  font-family:var(--jn-font);
+  background:
+    radial-gradient(1000px 600px at 10% -10%, rgba(239,81,52,.12) 0%, rgba(239,81,52,0) 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(14,165,233,.12) 0%, rgba(14,165,233,0) 55%),
+    #0b1220; /* matches signup */
+}
+.section{padding:48px 0}
+img{max-width:100%;height:auto}
+
+a{color:var(--jn-primary)}
+a:hover{color:var(--jn-primary-600)}
+
+/* -------------------- Navbar (kept minimal, dark glass to match signup bg) -------------------- */
+.navbar{background:rgba(15,21,34,.65);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid rgba(229,231,235,.12)}
+.navbar .navbar-brand{font-weight:900;letter-spacing:.4px;color:#fff}
+.navbar .navbar-brand span{color:var(--jn-primary)}
+.navbar .nav-link{color:#cbd5e1!important;font-weight:600}
+.navbar .nav-link:hover{color:#fff!important}
+
+/* -------------------- Header / Hero -------------------- */
+#header{position:relative;color:#fff;min-height:200px;padding:36px 0;background-position:center;background-size:cover;border-radius:0 0 28px 28px;overflow:hidden}
+#header::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.15))}
+#header .container{position:relative;z-index:1}
+
+/* -------------------- Cards & Surfaces -------------------- */
+.card{background:var(--jn-surface);border:1px solid var(--jn-border);border-radius:24px;box-shadow:var(--jn-shadow-sm)}
+.card .card-header{background:transparent;border-bottom:1px solid var(--jn-border)}
+.rounded-xl{border-radius:24px!important}
+
+/* Auth shell look for generic large shells */
+.shell{max-width:1080px;border-radius:24px;overflow:hidden;background:var(--jn-surface);box-shadow:var(--jn-shadow-lg)}
+
+/* -------------------- Buttons (exact feel as signup) -------------------- */
+.btn{border-radius:14px;font-weight:700}
+.btn-theme{background:var(--jn-primary);border:0;color:#fff}
+.btn-theme:hover{background:var(--jn-primary-600);color:#fff}
+.btn-outline-dark{border-color:var(--jn-border);color:#111;background:#fff}
+.btn-outline-dark:hover{border-color:var(--jn-primary);color:var(--jn-primary);background:#fff}
+.btn-outline-light{border-radius:14px}
+
+/* -------------------- Forms (exact feel as signup) -------------------- */
+.form-floating>.form-control,.form-floating>.form-select{border-radius:14px;border:1px solid var(--jn-border)}
+.form-control:focus,.form-select:focus{border-color:var(--jn-primary);box-shadow:0 0 0 3px rgba(239,81,52,.15)}
+.form-label{font-weight:600}
+.small-muted{color:var(--jn-muted)}
+.form-hint{font-size:.875rem;color:var(--jn-muted)}
+.password-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);border:0;background:transparent}
+
+/* Nav pills (signin/signup tabs) */
+.nav-pills .nav-link{font-weight:700;border-radius:999px}
+.nav-pills .nav-link.active{background:var(--jn-primary)}
+
+/* Divider (signin separator) */
+.divider{display:flex;align-items:center;gap:.75rem;color:var(--jn-muted)}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--jn-border)}
+
+/* Logo text fallback (signin header) */
+.logo-text{font-weight:900;font-size:1.4rem;letter-spacing:.4px;color:#fff}
+.logo-text span{color:var(--jn-primary)}
+
+/* -------------------- Utilities used across pages -------------------- */
+.badge-soft{background:rgba(239,81,52,.10);color:var(--jn-primary);border-radius:999px;padding:.25rem .6rem;font-weight:700}
+.stat-pill{display:inline-flex;align-items:center;gap:.6rem;background:#fff;border:1px solid var(--jn-border);border-radius:999px;padding:.45rem .8rem;color:#111;box-shadow:var(--jn-shadow-sm);font-weight:700}
+.hint{color:var(--jn-muted)}
+
+/* Tables, progress, list group kept simple to preserve signup look */
+.table thead th{background:#fff;color:#111;border-bottom:1px solid var(--jn-border);font-weight:700}
+.table td,.table th{vertical-align:middle;border-color:var(--jn-border)}
+.progress{height:10px;background:rgba(148,163,184,.25);border-radius:999px}
+.progress-bar{background:var(--jn-primary)}
+.list-group-item{border-color:var(--jn-border)}
+
+/* Offcanvas / Modals / Toasts with signup shadows */
+.offcanvas{border-left:1px solid var(--jn-border)}
+.modal-content{border:0;border-radius:20px;box-shadow:var(--jn-shadow-lg)}
+.toast{box-shadow:var(--jn-shadow-sm);border-radius:14px}
+
+/* 404/500 titles */
+.error-title{font-size:clamp(48px,8vw,72px);font-weight:900;letter-spacing:.6px}
+
+/* Receipt print */
+@media print{
+  body{background:#fff}
+  .navbar,footer,.btn,.d-print-none{display:none!important}
+  .card{box-shadow:none;border:1px solid #ddd}
+}
+
+
+/* --- Service tabs polish (Airtime / Data / Electricity / TV) --- */
+#serviceTabs{
+  gap:.4rem;               /* even spacing between tabs */
+  border:0;                /* remove default underline */
+  padding:.25rem .25rem;
+}
+
+#serviceTabs .nav-item{ margin-bottom:-2px; } /* aligns active underline */
+
+#serviceTabs .nav-link{
+  display:flex; align-items:center; gap:.45rem;   /* icon + text perfectly aligned */
+  padding:.6rem 1rem; line-height:1;              /* compact height */
+  border:0; border-bottom:2px solid transparent;  /* custom underline */
+  border-radius:12px 12px 0 0; 
+  font-weight:700; color:var(--jn-muted);
+  background:transparent;
+}
+
+#serviceTabs .nav-link i{
+  font-size:1rem; line-height:1;                  /* icon matches text baseline */
+  transform: translateY(-.5px);                   /* optical centering */
+}
+
+#serviceTabs .nav-link:hover{
+  color:var(--jn-primary);
+  background:rgba(239,81,52,.06);                 /* soft hover (signup look) */
+}
+
+#serviceTabs .nav-link.active{
+  color:var(--jn-primary);
+  background:rgba(239,81,52,.10);
+  border-color:var(--jn-primary);                 /* brand underline */
+}
+
+/* Tab body curve and border ties into the active tab */
+#services .tab-content{
+  border:1px solid var(--jn-border);
+  border-top:0;                                   /* connect to active tab */
+  border-radius:0 0 16px 16px;
+  background:var(--jn-surface);
+}
+
+/* Mobile: keep tabs on one line and scroll horizontally */
+@media (max-width: 575.98px){
+  #serviceTabs{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #serviceTabs .nav-link{ white-space:nowrap; }
+}
+
+
+/* Services tab: lock icon + label alignment */
+#serviceTabs .nav-link{
+  /* two columns: fixed icon + flexible text */
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 1.2rem auto;
+  align-items: center;
+  column-gap: .5rem;
+
+  /* stable height + no baseline wobble */
+  min-height: 44px;
+  line-height: 1;
+  white-space: nowrap;
+
+  /* keep underline thickness constant to avoid jumps */
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-weight: 700;
+  padding: .55rem 1rem;
+}
+
+#serviceTabs .nav-link .bi{
+  /* normalize icon box so text always starts at same x-position */
+  width: 1.2rem;
+  height: 1.2rem;
+  display: inline-block;
+  margin: 0 !important;      /* overrides .me-1 in HTML */
+  font-size: 1.05rem;
+  line-height: 1.2rem;       /* perfect vertical centering */
+  vertical-align: middle;
+  transform: translateY(-.5px); /* small optical nudge */
+}
+
+/* active state — no layout shift */
+#serviceTabs .nav-link.active{
+  color: var(--jn-primary);
+  background: rgba(239,81,52,.10);
+  border-bottom-color: var(--jn-primary);
+}
+
+/* Optional: on very small screens, allow smooth horizontal scroll */
+@media (max-width: 575.98px){
+  #serviceTabs{ flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Quick Actions grid — align icon + text perfectly */
+.k .card a{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;              /* tight, even spacing */
+  min-height: 120px;        /* same height for all tiles */
+  text-align: center;
+  padding: .75rem;
+}
+
+/* If you use <img> icons (e.g., Twemoji SVGs) */
+.k .card a img{
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  display: block;
+  line-height: 1;
+}
+
+/* If you use emoji glyphs (not <img>): targets first child element */
+.k .card a > :first-child:not(img){
+  font-size: 42px;          /* consistent emoji size */
+  line-height: 1;           /* removes baseline wobble */
+  display: block;
+  transform: translateY(-1px); /* tiny optical nudge */
+}
+
+/* Label style */
+.k .card a > :last-child{
+  font-weight: 600;
+  margin-top: .1rem;
+}
+
+/* Optional: hover polish without shifting layout */
+.k .card:hover{
+  transform: translateY(-2px);
+  box-shadow: var(--jn-shadow-md);
+}
+
+
+/* Prevent dropdowns from being clipped by cards/offcanvas/tab panes */
+.card,
+.tab-content,
+.offcanvas,
+.offcanvas-body { overflow: visible; }
+
+/* Ensure the menu floats above surrounding content */
+.dropdown-menu { z-index: 1080; }
+
+/* ======================
+   FOOTER OVERRIDE FIX
+   ====================== */
+
+.footer,
+footer {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    color: white !important;
+    position: relative;
+    z-index: 1000;
+}
+
+/* Force white text in footer */
+.footer *:not(.btn):not(.form-control) {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.footer h1,
+.footer h2,
+.footer h3,
+.footer h4,
+.footer h5,
+.footer h6,
+.footer .fw-bold,
+.footer strong {
+    color: white !important;
+}
+
+/* ======================
+   FOOTER SPECIFIC CLASSES
+   ====================== */
+
+/* Footer social icons */
+.footer-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.2s ease;
+}
+
+.footer-social:hover {
+    background: #EF5134;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Footer form input */
+.footer-input {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border-radius: 14px;
+}
+
+.footer-input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.footer-input:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: #EF5134 !important;
+    box-shadow: 0 0 0 0.25rem rgba(239, 81, 52, 0.25) !important;
+}
+
+/* Footer button */
+.footer-btn {
+    background: #EF5134 !important;
+    border-color: #EF5134 !important;
+    color: white !important;
+    border-radius: 14px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.footer-btn:hover {
+    background: #e6452a !important;
+    border-color: #e6452a !important;
+    transform: translateY(-1px);
+}
+
+/* Footer links */
+.footer-link {
+    color: rgba(255, 255, 255, 0.6) !important;
+    text-decoration: none;
+}
+
+.footer-link:hover {
+    color: white !important;
+}
+
+/* Footer background override */
+.footer,
+.home-footer,
+.page-footer {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    color: white !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* Ensure footer text is visible */
+.footer .text-white {
+    color: white !important;
+}
+
+.footer .text-muted {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.footer p,
+.footer small {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Footer list items */
+.footer ul.list-unstyled li a {
+    color: rgba(255, 255, 255, 0.6) !important;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.footer ul.list-unstyled li a:hover {
+    color: white !important;
+    padding-left: 5px;
+}
+
+/* Footer divider */
+.footer hr.border-secondary {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Responsive footer */
+@media (max-width: 768px) {
+    .footer {
+        text-align: center;
+    }
+    
+    .footer .row > div {
+        margin-bottom: 2rem;
+    }
+    
+    .footer .d-flex.gap-2 {
+        justify-content: center;
+    }
+    
+    .footer form {
+        flex-direction: column;
+    }
+    
+    .footer .footer-input,
+    .footer .footer-btn {
+        width: 100%;
+    }
+}

@@ -1,0 +1,436 @@
+<%- include('partials/header') %>
+
+<!-- =======================
+     MozAic — Customized Home
+     ======================= -->
+
+<div id="header">
+  <!-- Top nav / brand -->
+    <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="/"><span>Moz</span>Aic</a>
+      <button class="navbar-toggler text-light" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="#services">Services</a></li>
+          <li class="nav-item"><a class="nav-link" href="#how">How it works</a></li>
+          <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
+          <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/support">Support</a></li>
+              <li><a class="dropdown-item" href="/blog">Blog</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/terms">Terms & Privacy</a></li>
+            </ul>
+          </li>
+        </ul>
+        <div class="d-flex gap-2">
+          <a href="<%= url('/auth/login') %>" class="btn btn-outline-light">Sign in</a>
+          <!-- <a href="/dashboard/user" class="btn btn-cta">Go to Dashboard</a> -->
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero pt-5 pt-lg-6">
+    <div class="container">
+      <div class="row align-items-center g-4 g-lg-5">
+        <div class="col-lg-6">
+          <span class="badge-soft">Low fees • Instant delivery • Secure wallet</span>
+          <h1 class="display-5 fw-bold mt-3">Buy Data & Airtime, Pay Bills — <span style="color:#ffd9d2">Fast</span> and <span style="color:#c5f3ff">Reliable</span>.</h1>
+          <p class="lead text-light-50">MozAic gives you the best rates on data, airtime, electricity, cable TV, education and more — all in one simple dashboard.</p>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <a href="<%= url('/auth/register') %>" class="btn btn-cta btn-lg"><i class="bi bi-speedometer2 me-2"></i>Get Started</a>
+            <a href="<%= url('/auth/register') %>" class="btn btn-outline-light btn-lg"><i class="bi bi-person-plus me-2"></i>Create Account</a>
+          </div>
+          <div class="d-flex align-items-center gap-4 mt-4 text-light">
+            <div><i class="bi bi-shield-lock"></i> Secure</div>
+            <div><i class="bi bi-lightning"></i> Instant</div>
+            <div><i class="bi bi-phone"></i> Mobile‑first</div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card p-3 p-md-4">
+            <div class="row g-3">
+              <div class="col-12"><h5 class="mb-0">Quick Actions</h5><small class="text-muted">Jump right in — no stress.</small></div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-orange mb-2"><i class="bi bi-phone-fill"></i></div>
+                    <strong>Airtime</strong>
+                    <small class="text-muted">MTN, GLO, Airtel, 9mobile</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-sky mb-2"><i class="bi bi-wifi"></i></div>
+                    <strong>Data</strong>
+                    <small class="text-muted">Instant delivery</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-amber mb-2"><i class="bi bi-plug"></i></div>
+                    <strong>Electricity</strong>
+                    <small class="text-muted">Token in seconds</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-violet mb-2"><i class="bi bi-tv"></i></div>
+                    <strong>Cable TV</strong>
+                    <small class="text-muted">DStv, GOtv, Startimes</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-emerald mb-2"><i class="bi bi-mortarboard"></i></div>
+                    <strong>Education</strong>
+                    <small class="text-muted">WAEC, JAMB, etc.</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-6 col-md-4">
+                <a class="text-decoration-none" href="<%= url('/auth/register') %>">
+                  <div class="service-card card p-3 text-center">
+                    <div class="service-icon i-rose mb-2"><i class="bi bi-wallet2"></i></div>
+                    <strong>Wallet</strong>
+                    <small class="text-muted">Fund & withdraw</small>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SERVICES GRID -->
+  <section id="services" class="section section-light">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="fw-bold">All your essentials in one place</h2>
+        <p class="text-muted-strong">One wallet. Many services. Zero hassle.</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-sky"><i class="bi bi-wifi"></i></div>
+              <h5 class="mb-0">Data Bundles</h5>
+            </div>
+            <p class="text-muted">Affordable data for all networks with instant activation and transparent pricing.</p>
+            <a href="<%= url('/auth/register') %>" class="stretched-link text-decoration-none">Buy data <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-orange"><i class="bi bi-phone-fill"></i></div>
+              <h5 class="mb-0">Airtime Top‑up</h5>
+            </div>
+            <p class="text-muted">Top up in seconds with best‑rate discounts and automatic receipts.</p>
+            <a href="<%= url('/auth/register') %>" class="stretched-link text-decoration-none">Recharge now <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-amber"><i class="bi bi-plug"></i></div>
+              <h5 class="mb-0">Electricity</h5>
+            </div>
+            <p class="text-muted">Pay PHCN/DISCOs and get your token instantly — no waiting.</p>
+            <a href="<%= url('/auth/register') %>" class="stretched-link text-decoration-none">Pay bill <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-violet"><i class="bi bi-tv"></i></div>
+              <h5 class="mb-0">Cable TV</h5>
+            </div>
+            <p class="text-muted">Renew DStv, GOtv, Startimes with instant smart‑card refresh.</p>
+            <a href="<%= url('/auth/register') %>" class="stretched-link text-decoration-none">Renew now <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-emerald"><i class="bi bi-mortarboard"></i></div>
+              <h5 class="mb-0">Education</h5>
+            </div>
+            <p class="text-muted">Buy WAEC, NECO, NABTEB, and JAMB e‑pins at the best rates.</p>
+            <a href="<%= url('/auth/register') %>" class="stretched-link text-decoration-none">Get e‑pins <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="service-card card h-100 p-4">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="service-icon i-rose"><i class="bi bi-wallet2"></i></div>
+              <h5 class="mb-0">MozAic Wallet</h5>
+            </div>
+            <p class="text-muted">Fund with cards/banks, track history, and withdraw anytime.</p>
+            <a href="/dashboard/user#wallet" class="stretched-link text-decoration-none">Open wallet <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" class="section">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-6">
+          <h2 class="fw-bold">From signup to success — in minutes</h2>
+          <p class="text-muted-strong mb-4">MozAic is engineered for speed and simplicity. Here’s how it works:</p>
+          <div class="d-flex flex-column gap-3">
+            <div class="step"><div class="num">1</div><div><strong>Create account</strong><br><span class="text-muted">Use your email & phone to get started.</span></div></div>
+            <div class="step"><div class="num">2</div><div><strong>Fund wallet</strong><br><span class="text-muted">Use card or bank transfer — instant credit.</span></div></div>
+            <div class="step"><div class="num">3</div><div><strong>Make purchase</strong><br><span class="text-muted">Choose service and confirm.</span></div></div>
+            <div class="step"><div class="num">4</div><div><strong>Receive instantly</strong><br><span class="text-muted">Data/airtime tokens and receipts delivered at once.</span></div></div>
+          </div>
+          <div class="mt-4 d-flex gap-2">
+            <a href="/auth/register" class="btn btn-cta btn-lg"><i class="bi bi-person-plus me-2"></i>Create free account</a>
+            <a href="/dashboard/user" class="btn btn-outline-dark btn-lg">Open dashboard</a>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="row g-3">
+            <div class="col-6">
+              <div class="stat p-4 text-center">
+                <div class="display-6 fw-bold" data-count="99">0%</div>
+                <div class="small">Uptime</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="stat p-4 text-center">
+                <div class="display-6 fw-bold" data-count="2">0s</div>
+                <div class="small">Avg. processing</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="stat p-4 text-center">
+                <div class="display-6 fw-bold" data-count="50">0k+</div>
+                <div class="small">Successful top‑ups</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="stat p-4 text-center">
+                <div class="display-6 fw-bold" data-count="4.9">0</div>
+                <div class="small">User rating</div>
+              </div>
+            </div>
+          </div>
+          <small class="text-muted d-block mt-2">* figures illustrative — connect to live stats via API</small>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING / CALLOUT -->
+  <section id="pricing" class="section section-light">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="fw-bold">Transparent pricing</h2>
+        <p class="text-muted-strong">No hidden fees. Pay only for what you use.</p>
+      </div>
+      <div class="row g-4 align-items-stretch">
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 p-4 service-card">
+            <h5 class="fw-bold">Pay‑as‑you‑go</h5>
+            <p class="text-muted">Buy services anytime with your wallet.</p>
+            <ul class="list-unstyled mb-4">
+              <li><i class="bi bi-check-circle text-success me-1"></i> Best‑rate data & airtime</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> Instant receipts</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> 24/7 support</li>
+            </ul>
+            <a href="<%= url('/auth/register') %>" class="btn btn-outline-dark w-100">Start now</a>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 p-4 service-card border-2" style="border-color:#ffe1db">
+            <div class="d-flex justify-content-between align-items-center"><h5 class="fw-bold mb-0">Pro Saver</h5><span class="badge-soft">Popular</span></div>
+            <p class="text-muted">Unlock better discounts with higher wallet tiers.</p>
+            <ul class="list-unstyled mb-4">
+              <li><i class="bi bi-check-circle text-success me-1"></i> Extra discounts</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> Priority support</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> Monthly statements</li>
+            </ul>
+            <a href="<%= url('/auth/register') %>" class="btn btn-cta w-100">Create account</a>
+          </div>
+        </div>
+        <div class="col-md-12 col-lg-4">
+          <div class="card h-100 p-4 service-card">
+            <h5 class="fw-bold">For Businesses</h5>
+            <p class="text-muted">Need bulk purchases or API access? We’ve got you.</p>
+            <ul class="list-unstyled mb-4">
+              <li><i class="bi bi-check-circle text-success me-1"></i> Bulk data/airtime</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> Team wallets & roles</li>
+              <li><i class="bi bi-check-circle text-success me-1"></i> Developer API</li>
+            </ul>
+            <a href="/contact" class="btn btn-outline-dark w-100">Contact sales</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="section">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="fw-bold">Users love MozAic</h2>
+        <p class="text-muted-strong">Here’s what people say after switching.</p>
+      </div>
+      <div id="tCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <div class="row justify-content-center g-4">
+              <div class="col-md-6 col-lg-4">
+                <div class="t-card card p-4 h-100">
+                  <div class="d-flex align-items-center gap-3 mb-2"><img src="https://i.pravatar.cc/80?img=14" class="rounded-circle" width="48" height="48" alt="User"/><div><strong>Ada</strong><br/><small class="text-muted">Abuja</small></div></div>
+                  <p class="mb-0">“Top‑ups are instant and the rates are great. The wallet makes it super easy.”</p>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="t-card card p-4 h-100">
+                  <div class="d-flex align-items-center gap-3 mb-2"><img src="https://i.pravatar.cc/80?img=21" class="rounded-circle" width="48" height="48" alt="User"/><div><strong>Yusuf</strong><br/><small class="text-muted">Lagos</small></div></div>
+                  <p class="mb-0">“Paid PHCN and got my token in seconds. Clean interface — no confusion.”</p>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="t-card card p-4 h-100">
+                  <div class="d-flex align-items-center gap-3 mb-2"><img src="https://i.pravatar.cc/80?img=5" class="rounded-circle" width="48" height="48" alt="User"/><div><strong>Chiamaka</strong><br/><small class="text-muted">Port Harcourt</small></div></div>
+                  <p class="mb-0">“Love the receipts and history. Makes my monthly budgeting simple.”</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="row justify-content-center g-4">
+              <div class="col-md-6 col-lg-4">
+                <div class="t-card card p-4 h-100">
+                  <div class="d-flex align-items-center gap-3 mb-2"><img src="https://i.pravatar.cc/80?img=8" class="rounded-circle" width="48" height="48" alt="User"/><div><strong>Femi</strong><br/><small class="text-muted">Ibadan</small></div></div>
+                  <p class="mb-0">“I switched from my old vendor — JoNet’s discounts and speed won me over.”</p>
+                </div>
+              </div>
+              <div class="col-md-6 col-lg-4">
+                <div class="t-card card p-4 h-100">
+                  <div class="d-flex align-items-center gap-3 mb-2"><img src="https://i.pravatar.cc/80?img=27" class="rounded-circle" width="48" height="48" alt="User"/><div><strong>Grace</strong><br/><small class="text-muted">Enugu</small></div></div>
+                  <p class="mb-0">“Support replies fast. The dashboard is straightforward.”</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#tCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Previous</span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#tCarousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Next</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="section section-light">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="fw-bold">Frequently asked questions</h2>
+        <p class="text-muted-strong">Everything you need to know.</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-8 mx-auto">
+          <div class="accordion" id="faqAcc">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="q1"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#a1" aria-expanded="true" aria-controls="a1">How do I fund my wallet?</button></h2>
+              <div id="a1" class="accordion-collapse collapse show" aria-labelledby="q1" data-bs-parent="#faqAcc">
+                <div class="accordion-body">Go to your dashboard wallet, tap <strong>Fund</strong>, then choose card or bank transfer. Funds are credited instantly once payment is confirmed.</div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="q2"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a2" aria-expanded="false" aria-controls="a2">Do you send receipts?</button></h2>
+              <div id="a2" class="accordion-collapse collapse" aria-labelledby="q2" data-bs-parent="#faqAcc">
+                <div class="accordion-body">Yes. Receipts and tokens are shown on‑screen and saved to your history. You can also receive them by email.</div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="q3"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a3" aria-expanded="false" aria-controls="a3">Are the rates the same for all networks?</button></h2>
+              <div id="a3" class="accordion-collapse collapse" aria-labelledby="q3" data-bs-parent="#faqAcc">
+                <div class="accordion-body">Rates vary slightly by network and plan, but we always keep them competitive and transparent before you pay.</div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="q4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a4" aria-expanded="false" aria-controls="a4">Can I withdraw from my wallet?</button></h2>
+              <div id="a4" class="accordion-collapse collapse" aria-labelledby="q4" data-bs-parent="#faqAcc">
+                <div class="accordion-body">Yes. You can withdraw to your bank at any time, subject to standard bank processing windows.</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center mt-4"><a href="/support" class="btn btn-outline-dark">More questions? Contact support</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  // Year
+  document.addEventListener('DOMContentLoaded', function() {
+    const yearElement = document.getElementById('y');
+    if (yearElement) {
+      yearElement.textContent = new Date().getFullYear();
+    }
+    
+    // Simple counter animation
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          const el = e.target;
+          const goal = parseFloat(el.dataset.count);
+          const isSeconds = el.textContent.trim().endsWith('s');
+          let cur = 0;
+          const step = goal / 40; // 40 frames
+          
+          const int = setInterval(() => {
+            cur += step;
+            if (cur >= goal) {
+              cur = goal;
+              clearInterval(int);
+            }
+            
+            el.textContent = isSeconds ? Math.round(cur) + 's' : 
+              (Number.isInteger(goal) ? Math.round(cur) : cur.toFixed(1));
+            
+            if (el.nextElementSibling && el.nextElementSibling.textContent.includes('top‑ups') && cur === goal) {
+              el.textContent = goal + 'k+';
+            }
+            if (el.nextElementSibling && el.nextElementSibling.textContent.includes('Uptime') && cur === goal) {
+              el.textContent = goal + '%';
+            }
+          }, 30);
+          
+          observer.unobserve(el);
+        }
+      });
+    }, { threshold: .6 });
+    
+    document.querySelectorAll('[data-count]').forEach(el => observer.observe(el));
+  });
+  </script>
+
+<%- include('partials/footer') %>
