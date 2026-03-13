@@ -48,7 +48,7 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://mozaic-eomm.onrender.com', process.env.BASE_URL] 
+        ? ['https://mozaic-eomm.onrender.com', process.env.BASE_URL].filter(Boolean)
         : ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
     optionsSuccessStatus: 200
@@ -119,6 +119,7 @@ connectDB().then(() => {
         app.set('trust proxy', 1);
     }
 
+    // IMPORTANT: Session MUST come before flash and CSRF
     app.use(session(sessionConfig));
 
     // ==================== Flash Messages ====================
@@ -135,11 +136,13 @@ connectDB().then(() => {
         res.locals.messages = req.flash ? req.flash() : {};
         res.locals.queryParams = req.query;
         res.locals.env = process.env.NODE_ENV;
-        res.locals.baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host')}`;
         res.locals.nonce = crypto.randomBytes(16).toString('base64');
         res.locals.bodyClass = '';
         res.locals.formData = {};
-        res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
+        
+        // CSRF token will be set by csrf middleware
+        res.locals.csrfToken = '';
         
         res.locals.url = (path) => {
             if (process.env.NODE_ENV !== 'production' && path && path.startsWith('https://localhost')) {
@@ -156,6 +159,7 @@ connectDB().then(() => {
     app.use('/auth/', rateLimiter.auth);
 
     // ==================== CSRF Protection ====================
+    // This must come AFTER session but BEFORE routes
     setupCsrf(app);
 
     // ==================== Routes ====================
@@ -263,11 +267,11 @@ connectDB().then(() => {
 
     server.listen(PORT, () => {
         logger.info(`✅ Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-        logger.info(`📝 Base URL: ${process.env.BASE_URL || `http://localhost:${PORT}`}`);
-        logger.info(`🏠 Home page: http://localhost:${PORT}/`);
-        logger.info(`🔑 Login page: http://localhost:${PORT}/auth/login`);
-        logger.info(`📝 Register page: http://localhost:${PORT}/auth/register`);
-        logger.info(`📊 Dashboard: http://localhost:${PORT}/dashboard/user`);
+        logger.info(`📝 Base URL: ${process.env.BASE_URL || `https://${server.address().address}:${PORT}`}`);
+        logger.info(`🏠 Home page: /`);
+        logger.info(`🔑 Login page: /auth/login`);
+        logger.info(`📝 Register page: /auth/register`);
+        logger.info(`📊 Dashboard: /dashboard/user`);
     });
 
     // Handle unhandled rejections
