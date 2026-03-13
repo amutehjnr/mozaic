@@ -197,6 +197,26 @@ app.use((req, res, next) => {
     next();
 });
 
+// Add this RIGHT AFTER cookieParser, BEFORE anything else
+app.use((req, res, next) => {
+    console.log('\n🎯 REQUEST STARTED:', req.method, req.url);
+    console.log('   Timestamp:', new Date().toISOString());
+    
+    // Monkey patch res.json to catch errors
+    const originalJson = res.json;
+    res.json = function(data) {
+        console.log('   📦 JSON Response sent for', req.url);
+        return originalJson.call(this, data);
+    };
+    
+    // Add error handler for this request
+    req.on('error', (err) => {
+        console.error('🚨 Request error:', err);
+    });
+    
+    next();
+});
+
 // Add this BEFORE your routes
 app.get('/debug/env', (req, res) => {
     res.json({
