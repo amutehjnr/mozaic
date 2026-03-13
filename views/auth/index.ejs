@@ -379,7 +379,7 @@ if (typeof messages === 'undefined') var messages = {};
             if (redirectUrl.startsWith('https://localhost')) {
               redirectUrl = redirectUrl.replace('https://', 'http://');
             }
-            window.location.href = redirectUrl;
+             window.location.href = data.redirect || '/dashboard/user';
           } else {
             // Show error
             errorDiv.textContent = data.error || 'Login failed. Please try again.';
@@ -435,7 +435,7 @@ if (typeof messages === 'undefined') var messages = {};
             if (redirectUrl.startsWith('https://localhost')) {
               redirectUrl = redirectUrl.replace('https://', 'http://');
             }
-            window.location.href = redirectUrl;
+             window.location.href = data.redirect || '/dashboard/user';
           } else {
             // Show error
             errorDiv.textContent = data.error || 'Registration failed. Please try again.';

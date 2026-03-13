@@ -140,9 +140,7 @@ class AuthController {
             // Check if AJAX request
             if (req.xhr || req.headers.accept === 'application/json') {
                 // Force HTTP in development
-                const redirectUrl = process.env.NODE_ENV === 'production' 
-                    ? '/dashboard/user' 
-                    : 'http://localhost:3000/dashboard/user';
+                const redirectUrl = '/dashboard/user';
                 
                 return res.json({
                     ok: true,
@@ -228,9 +226,7 @@ class AuthController {
             // Check if AJAX request
             if (req.xhr || req.headers.accept === 'application/json') {
                 // Force HTTP in development
-                const redirectUrl = process.env.NODE_ENV === 'production' 
-                    ? '/dashboard/user' 
-                    : 'http://localhost:3000/dashboard/user';
+                const redirectUrl = '/dashboard/user';
                 
                 return res.json({
                     ok: true,
