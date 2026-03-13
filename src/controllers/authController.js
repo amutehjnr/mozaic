@@ -26,7 +26,7 @@ class AuthController {
      */
     showAuthPage(req, res) {
         const isLogin = req.path === '/login';
-        
+        console.log('🔍 showAuthPage called:', { isLogin, path: req.path });
         res.render('auth/index', {
             title: isLogin ? 'Sign In - MozAic' : 'Create Account - MozAic',
             bodyClass: 'auth-page',

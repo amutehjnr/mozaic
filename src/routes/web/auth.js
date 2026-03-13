@@ -101,6 +101,11 @@ router.get('/verify-email', isAuthenticated, (req, res) => {
     });
 });
 
+// Add this temporary test route right after your other routes
+router.get('/test', (req, res) => {
+    res.send('Auth test route working!');
+});
+
 router.get('/verify-email/:token', isAuthenticated, authController.verifyEmail);
 
 module.exports = router;
