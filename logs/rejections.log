@@ -1,0 +1,72 @@
+2026-03-12 05:42:16:4216 [31merror[39m: [31munhandledRejection: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31mMongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:86:19)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:58:23)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+2026-03-12 05:44:54:4454 [31merror[39m: [31munhandledRejection: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31mMongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:86:19)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:58:23)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+2026-03-12 05:48:16:4816 [31merror[39m: [31munhandledRejection: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31mMongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:86:19)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:58:23)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+2026-03-12 05:56:29:5629 [31merror[39m: [31munhandledRejection: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31mMongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:86:19)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:58:23)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m
+2026-03-12 10:48:31:4831 [31merror[39m: [31munhandledRejection: Invalid URL: mongodb://MOZAICC:January@2026@ac-nhcizhg-shard-00-00.dhzzqwi.mongodb.net:27017,ac-nhcizhg-shard-00-01.dhzzqwi.mongodb.net:27017,ac-nhcizhg-shard-00-02.dhzzqwi.mongodb.net:27017/?ssl=true&replicaSet=atlas-ltp3k2-shard-0&authSource=admin&appName=MOZAICC[39m
+[31mTypeError: Invalid URL: mongodb://MOZAICC:January@2026@ac-nhcizhg-shard-00-00.dhzzqwi.mongodb.net:27017,ac-nhcizhg-shard-00-01.dhzzqwi.mongodb.net:27017,ac-nhcizhg-shard-00-02.dhzzqwi.mongodb.net:27017/?ssl=true&replicaSet=atlas-ltp3k2-shard-0&authSource=admin&appName=MOZAICC[39m
+[31m    at new URLImpl (C:\Users\User\Documents\mozaic\node_modules\whatwg-url\lib\URL-impl.js:20:13)[39m
+[31m    at exports.setup (C:\Users\User\Documents\mozaic\node_modules\whatwg-url\lib\URL.js:54:12)[39m
+[31m    at new URL (C:\Users\User\Documents\mozaic\node_modules\whatwg-url\lib\URL.js:115:22)[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:126:13)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:59:23)[39m
+2026-03-12 10:53:54:5354 [31merror[39m: [31munhandledRejection: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31mMongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"[39m
+[31m    at new ConnectionString (C:\Users\User\Documents\mozaic\node_modules\mongodb-connection-string-url\lib\index.js:86:19)[39m
+[31m    at parseOptions (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\connection_string.js:197:17)[39m
+[31m    at new MongoClient (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:68:61)[39m
+[31m    at MongoClient.connect (C:\Users\User\Documents\mozaic\node_modules\mongodb\lib\mongo_client.js:445:24)[39m
+[31m    at new MongoStore (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:114:46)[39m
+[31m    at MongoStore.create (C:\Users\User\Documents\mozaic\node_modules\connect-mongo\build\main\lib\MongoStore.js:140:16)[39m
+[31m    at Object.<anonymous> (C:\Users\User\Documents\mozaic\src\app.js:59:23)[39m
+[31m    at Module._compile (node:internal/modules/cjs/loader:1562:14)[39m
+[31m    at Object..js (node:internal/modules/cjs/loader:1699:10)[39m
+[31m    at Module.load (node:internal/modules/cjs/loader:1313:32)[39m

@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 7
+    },
+    "auditLog": "C:\\Users\\User\\Documents\\mozaic\\logs\\.1aaba256c48d94cd7dbb72dd3a960e2f2fe210e7-audit.json",
+    "files": [
+        {
+            "date": 1773289220808,
+            "name": "C:\\Users\\User\\Documents\\mozaic\\logs\\http-2026-03-12.log",
+            "hash": "704b5842f50fdc7041d46b0d4a3c546c6f6334bb081ae205196bab68d09cd61b"
+        },
+        {
+            "date": 1773358542880,
+            "name": "C:\\Users\\User\\Documents\\mozaic\\logs\\http-2026-03-13.log",
+            "hash": "f53ee603f5c65303a4a7a8200089bcf39320ed6ad060aa1540b45699ea08ac40"
+        }
+    ],
+    "hashType": "sha256"
+}

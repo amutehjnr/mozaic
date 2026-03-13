@@ -1,3 +1,11 @@
+console.log('📧 Email service loaded, BASE_URL:', process.env.BASE_URL);
+try {
+    new URL(process.env.BASE_URL);
+    console.log('✅ Email service BASE_URL valid');
+} catch (e) {
+    console.error('❌ Email service BASE_URL invalid:', e.message);
+}
+
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
