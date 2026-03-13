@@ -168,7 +168,7 @@ if (typeof messages === 'undefined') var messages = {};
         <div class="tab-content" id="authTabsContent">
           <!-- LOGIN -->
           <div class="tab-pane fade show active" id="pane-login" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
-            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/login" id="loginForm" enctype="application/x-www-form-urlencoded>
+            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/login" id="loginForm" enctype="application/x-www-form-urlencoded">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="col-12">
                 <div class="form-floating">
@@ -208,7 +208,7 @@ if (typeof messages === 'undefined') var messages = {};
 
           <!-- SIGNUP -->
           <div class="tab-pane fade" id="pane-signup" role="tabpanel" aria-labelledby="signup-tab" tabindex="0">
-            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/register" id="signupForm" enctype="application/x-www-form-urlencoded>
+            <form class="row g-3 needs-validation" novalidate method="POST" action="/auth/register" id="signupForm" enctype="application/x-www-form-urlencoded">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="col-12">
                 <div class="form-floating">
@@ -374,12 +374,8 @@ if (typeof messages === 'undefined') var messages = {};
           const data = await response.json();
           
           if (data.ok) {
-            // Success - redirect to dashboard (force HTTP in development)
-            let redirectUrl = data.redirect || '/dashboard/user';
-            if (redirectUrl.startsWith('https://localhost')) {
-              redirectUrl = redirectUrl.replace('https://', 'http://');
-            }
-             window.location.href = data.redirect || '/dashboard/user';
+            // Success - redirect to dashboard
+            window.location.href = data.redirect || '/dashboard/user';
           } else {
             // Show error
             errorDiv.textContent = data.error || 'Login failed. Please try again.';
@@ -430,12 +426,8 @@ if (typeof messages === 'undefined') var messages = {};
           const data = await response.json();
           
           if (data.ok) {
-            // Success - redirect to dashboard (force HTTP in development)
-            let redirectUrl = data.redirect || '/dashboard/user';
-            if (redirectUrl.startsWith('https://localhost')) {
-              redirectUrl = redirectUrl.replace('https://', 'http://');
-            }
-             window.location.href = data.redirect || '/dashboard/user';
+            // Success - redirect to dashboard
+            window.location.href = data.redirect || '/dashboard/user';
           } else {
             // Show error
             errorDiv.textContent = data.error || 'Registration failed. Please try again.';
