@@ -6,6 +6,7 @@ const { csrfProtection } = require('../../middleware/csrf');
 const { validate } = require('../../middleware/validation');
 const rateLimiter = require('../../middleware/rateLimiter');
 const { handleMultipart } = require('../../middleware/multer'); 
+const { csrfProtection, generateToken } = require('../../middleware/csrf');
 
 // Controllers
 const authController = require('../../controllers/authController');
@@ -270,5 +271,25 @@ router.post('/admin/wallet/adjust',
 );
 router.get('/admin/logs', adminController.getLogs);
 router.get('/admin/health', adminController.getHealth);
+
+// Add this temporary debug route
+router.get('/csrf-debug', (req, res) => {
+    try {
+        const token = generateToken(req);
+        res.json({ 
+            ok: true, 
+            csrfToken: token,
+            sessionId: req.session.id,
+            hasSecret: !!req.session.csrfSecret
+        });
+    } catch (error) {
+        console.error('CSRF debug error:', error);
+        res.status(500).json({ 
+            ok: false, 
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
 
 module.exports = router;

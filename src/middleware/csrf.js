@@ -18,8 +18,9 @@ const setupCsrf = (app) => {
             // Generate token for this request
             const token = tokens.create(req.session.csrfSecret);
             
-            // Make token available to views
+            // Make token available to views and requests
             res.locals.csrfToken = token;
+            req.csrfToken = () => token; // Add this line
             
             // Also set in cookie for AJAX requests
             res.cookie('XSRF-TOKEN', token, {
@@ -34,6 +35,7 @@ const setupCsrf = (app) => {
             console.error('CSRF setup error:', error);
             // Continue even if CSRF fails (for development)
             res.locals.csrfToken = 'dev-token';
+            req.csrfToken = () => 'dev-token'; // Add this line
             next();
         }
     });
