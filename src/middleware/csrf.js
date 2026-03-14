@@ -124,14 +124,29 @@ const csrfProtection = (req, res, next) => {
  * Generate CSRF token for API responses
  */
 const generateToken = (req) => {
+    console.log('🔑 generateToken called');
+    console.log('   Session exists:', !!req.session);
+    
     try {
+        if (!req.session) {
+            throw new Error('No session available');
+        }
+        
         if (!req.session.csrfSecret) {
+            console.log('   Creating new CSRF secret');
             req.session.csrfSecret = tokens.secretSync();
         }
-        return tokens.create(req.session.csrfSecret);
+        
+        const token = tokens.create(req.session.csrfSecret);
+        console.log('   ✅ Token created successfully');
+        return token;
+        
     } catch (error) {
-        console.error('Generate token error:', error);
-        return 'dev-token';
+        console.error('❌ generateToken error:');
+        console.error('   Name:', error.name);
+        console.error('   Message:', error.message);
+        console.error('   Stack:', error.stack);
+        throw error; // Re-throw to be caught by the route handler
     }
 };
 

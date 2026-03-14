@@ -269,6 +269,15 @@ app.get('/debug/env', (req, res) => {
         });
     });
 
+    // Add this BEFORE your other routes
+app.get('/test-simple', (req, res) => {
+    res.json({ 
+        status: 'ok',
+        session: !!req.session,
+        message: 'Simple test route working' 
+    });
+});
+
     // Load auth routes
     console.log('📂 Loading auth routes from: ./src/routes/web/auth.js');
     try {

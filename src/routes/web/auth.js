@@ -106,13 +106,45 @@ router.get('/test', (req, res) => {
     res.send('Auth test route working!');
 });
 
-// Add this at the bottom of your auth.js routes file
 router.get('/debug', (req, res) => {
-    res.json({
-        message: 'Auth routes are working',
-        session: req.session ? 'exists' : 'none',
-        csrfToken: req.csrfToken ? req.csrfToken() : 'not available'
-    });
+    console.log('=== AUTH DEBUG ROUTE HIT ===');
+    console.log('Time:', new Date().toISOString());
+    console.log('Session exists:', !!req.session);
+    console.log('Session ID:', req.session?.id);
+    console.log('CSRF secret exists:', !!req.session?.csrfSecret);
+    console.log('req.csrfToken exists:', typeof req.csrfToken === 'function');
+    
+    try {
+        let csrfToken = 'not available';
+        if (typeof req.csrfToken === 'function') {
+            csrfToken = req.csrfToken();
+            console.log('✅ CSRF token generated');
+        } else {
+            console.warn('⚠️ req.csrfToken is not a function');
+        }
+        
+        const response = {
+            message: 'Auth routes are working',
+            session: req.session ? 'exists' : 'none',
+            sessionId: req.session?.id,
+            hasCsrfSecret: !!req.session?.csrfSecret,
+            csrfToken: csrfToken
+        };
+        
+        console.log('📤 Sending response');
+        res.json(response);
+        
+    } catch (error) {
+        console.error('❌ Auth Debug Error:');
+        console.error('   Name:', error.name);
+        console.error('   Message:', error.message);
+        console.error('   Stack:', error.stack);
+        
+        res.status(500).json({ 
+            error: 'Debug route error',
+            details: error.message 
+        });
+    }
 });
 
 router.get('/verify-email/:token', isAuthenticated, authController.verifyEmail);
