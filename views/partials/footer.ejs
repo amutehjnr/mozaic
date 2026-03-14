@@ -155,50 +155,80 @@
       }, { threshold: .6 });
       els.forEach(el => io.observe(el));
     })();
-
-    // Minimal API helper (CSRF + /api/* form submits)
-    (function(){
-      window.API = window.API || {
-        csrf: "<%= url('/api/csrf') %>",
-        redirectAfterAuth: "<%= url('/dashboard/user') %>",
-      };
-
-      // Inject CSRF into forms when available
-      fetch(API.csrf).then(r=>r.json()).then(({token})=>{
-        document.querySelectorAll('form').forEach(f=>{
-          if(!f.querySelector('input[name="csrf_token"]')){
-            const i=document.createElement('input'); i.type='hidden'; i.name='csrf_token'; i.value=token; f.appendChild(i);
-          }
-        });
-      }).catch(()=>{ /* ignore first paint */ });
-
-      // Intercept forms that post to /api/*
-      document.addEventListener('submit', async (e) => {
-        const f = e.target;
-        if (f.tagName !== 'FORM') return;
-        const action = (f.getAttribute('action') || '').toLowerCase();
-        if (!action.includes('/api/')) return;
-
-        e.preventDefault();
-        try {
-          const resp = await fetch(action, { method: (f.method || 'POST').toUpperCase(), body: new FormData(f) });
-          const data = await resp.json().catch(() => ({}));
-          if (resp.ok && data && (data.ok || !data.error)) {
-            if (action.includes('/api/auth/')) {
-              window.flash('success', 'Welcome 👋');
-              setTimeout(()=>{ location.href = API.redirectAfterAuth; }, 400);
-            } else {
-              window.flash('success', data.message || 'Done ✅');
-            }
-          } else {
-            window.flash('error', (data && (data.error || data.message)) || 'Action failed');
-          }
-        } catch {
-          window.flash('error', 'Network error');
-        }
-      });
-    })();
   </script>
+
+  <!-- Minimal API helper (CSRF + /api/* form submits) - FIXED VERSION -->
+<script>
+  (function(){
+    // FIXED: Use direct paths instead of the url() helper which was causing issues
+    window.API = window.API || {
+      csrf: "/api/csrf",                    // Direct path, no helper
+      redirectAfterAuth: "/dashboard/user",  // Direct path, no helper
+    };
+
+    // Inject CSRF into forms when available
+    fetch(API.csrf)
+      .then(r => {
+        if (!r.ok) throw new Error('CSRF fetch failed');
+        return r.json();
+      })
+      .then(data => {
+        // Handle both possible response formats
+        const token = data.csrfToken || data.token;
+        if (token) {
+          document.querySelectorAll('form').forEach(f => {
+            if (!f.querySelector('input[name="csrf_token"]')) {
+              const i = document.createElement('input');
+              i.type = 'hidden';
+              i.name = 'csrf_token';
+              i.value = token;
+              f.appendChild(i);
+            }
+          });
+        }
+      })
+      .catch(err => {
+        console.warn('CSRF token fetch failed:', err);
+        // Continue without CSRF - forms might fail but that's OK for debugging
+      });
+
+    // Intercept forms that post to /api/*
+    document.addEventListener('submit', async (e) => {
+      const f = e.target;
+      if (f.tagName !== 'FORM') return;
+      
+      const action = (f.getAttribute('action') || '').toLowerCase();
+      if (!action.includes('/api/')) return;
+
+      e.preventDefault();
+      
+      try {
+        const resp = await fetch(action, { 
+          method: (f.method || 'POST').toUpperCase(), 
+          body: new FormData(f) 
+        });
+        
+        const data = await resp.json().catch(() => ({}));
+        
+        if (resp.ok && data && (data.ok || !data.error)) {
+          if (action.includes('/api/auth/')) {
+            window.flash('success', 'Welcome 👋');
+            setTimeout(() => { 
+              location.href = API.redirectAfterAuth; 
+            }, 400);
+          } else {
+            window.flash('success', data.message || 'Done ✅');
+          }
+        } else {
+          window.flash('error', (data && (data.error || data.message)) || 'Action failed');
+        }
+      } catch (err) {
+        console.error('API submit error:', err);
+        window.flash('error', 'Network error');
+      }
+    });
+  })();
+</script>
 
 </body>
 </html>

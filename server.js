@@ -129,30 +129,44 @@ connectDB().then(() => {
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
 
-    // ==================== Global Middleware ====================
-    app.use((req, res, next) => {
-        res.locals.user = req.session?.user || null;
-        res.locals.currentUrl = req.originalUrl;
-        res.locals.messages = req.flash ? req.flash() : {};
-        res.locals.queryParams = req.query;
-        res.locals.env = process.env.NODE_ENV;
-        res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host') || 'mozaic-eomm.onrender.com'}`;
-        res.locals.nonce = crypto.randomBytes(16).toString('base64');
-        res.locals.bodyClass = '';
-        res.locals.formData = {};
+   // ==================== Global Middleware ====================
+app.use((req, res, next) => {
+    res.locals.user = req.session?.user || null;
+    res.locals.currentUrl = req.originalUrl;
+    res.locals.messages = req.flash ? req.flash() : {};
+    res.locals.queryParams = req.query;
+    res.locals.env = process.env.NODE_ENV;
+    res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host') || 'mozaic-eomm.onrender.com'}`;
+    res.locals.nonce = crypto.randomBytes(16).toString('base64');
+    res.locals.bodyClass = '';
+    res.locals.formData = {};
+    
+    // CSRF token will be set by csrf middleware
+    res.locals.csrfToken = '';
+    
+    // FIXED: Safe URL helper function
+    res.locals.url = (path) => {
+        // If no path, return empty string
+        if (!path) return '';
         
-        // CSRF token will be set by csrf middleware
-        res.locals.csrfToken = '';
-        
-        res.locals.url = (path) => {
-            if (process.env.NODE_ENV !== 'production' && path && path.startsWith('https://localhost')) {
-                return path.replace('https://', 'http://');
-            }
+        // If it's already a full URL with protocol, return it as-is
+        if (path.startsWith('http://') || path.startsWith('https://')) {
             return path;
-        };
+        }
         
-        next();
-    });
+        // Ensure path starts with a single slash
+        const cleanPath = path.startsWith('/') ? path : '/' + path;
+        
+        // In development, handle localhost https to http conversion if needed
+        if (process.env.NODE_ENV !== 'production' && cleanPath.includes('localhost')) {
+            return cleanPath.replace('https://', 'http://');
+        }
+        
+        return cleanPath;
+    };
+    
+    next();
+});
 
     // Add this AFTER your global middleware but BEFORE routes
 // Add this AFTER your global middleware but BEFORE routes
