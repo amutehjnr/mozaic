@@ -63,37 +63,19 @@ const isAuthenticated = async (req, res, next) => {
  * Check if user is guest (not authenticated)
  */
 const isGuest = async (req, res, next) => {
-    // If no session or no userId, they're a guest - proceed
-    if (!req.session || !req.session.userId) {
-        return next();
-    }
-
-    try {
-        // Try to find the user
-        const user = await User.findById(req.session.userId);
-        
-        if (user && user.isActive) {
-            // User is logged in and active - redirect to dashboard
-            return res.redirect('/dashboard/user');
-        } else {
-            // User not found or inactive - destroy session
-            req.session.destroy((err) => {
-                if (err) console.error('Session destroy error:', err);
-                // Even if destroy fails, proceed as guest
-                next();
-            });
-            return; // Important: stop execution here
+    if (req.session.userId) {
+        try {
+            const user = await User.findById(req.session.userId);
+            if (user && user.isActive) {
+                return res.redirect('/dashboard/user'); // logged-in, redirect
+            } else {
+                req.session.destroy(); // stale session
+            }
+        } catch (err) {
+            req.session.destroy();
         }
-    } catch (err) {
-        console.error('isGuest middleware error:', err);
-        
-        // On error, destroy session and proceed as guest
-        req.session.destroy((destroyErr) => {
-            if (destroyErr) console.error('Session destroy error:', destroyErr);
-            next();
-        });
-        return; // Important: stop execution here
     }
+    next(); // show login page
 };
 
 /**
