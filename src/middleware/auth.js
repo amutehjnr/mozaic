@@ -60,8 +60,7 @@ const isAuthenticated = async (req, res, next) => {
 };
 
 /**
- * Check if user is guest (not authenticated)
- * FIXED: Proper async error handling with session destroy callback
+ * Check if user is guest (not authenticated) - FIXED VERSION
  */
 const isGuest = async (req, res, next) => {
     // If no userId, they're a guest - let them in

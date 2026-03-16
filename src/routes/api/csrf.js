@@ -10,17 +10,17 @@ router.get('/', (req, res) => {
     console.log('CSRF secret exists:', !!req.session?.csrfSecret);
     
     try {
-        // Test 1: Check if generateToken exists
+        // Check if generateToken exists
         if (typeof generateToken !== 'function') {
             console.error('❌ generateToken is not a function');
             return res.status(500).json({ error: 'CSRF configuration error' });
         }
         
-        // Test 2: Try to generate token
+        // Try to generate token
         const token = generateToken(req);
         console.log('✅ Token generated:', token ? 'yes' : 'no');
         
-        // Test 3: Send response
+        // Send response
         console.log('📤 Sending response with token');
         return res.json({ csrfToken: token });
         
@@ -31,14 +31,9 @@ router.get('/', (req, res) => {
         console.error('   Message:', error.message);
         console.error('   Stack:', error.stack);
         
-        // Send detailed error in development, generic in production
-        const isDev = process.env.NODE_ENV !== 'production';
+        // Send error response
         return res.status(500).json({ 
-            error: 'Could not generate token',
-            ...(isDev && { 
-                details: error.message,
-                stack: error.stack 
-            })
+            error: 'Could not generate token'
         });
     }
 });
