@@ -3,17 +3,12 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            autoIndex: process.env.NODE_ENV === 'development',
-            maxPoolSize: 10,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-            family: 4 // Use IPv4, skip trying IPv6
-        });
-
+        // Remove all options - let Mongoose handle it automatically
+        const conn = await mongoose.connect(process.env.MONGODB_URI);
+        
         logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
+        logger.info(`   Database: ${conn.connection.name}`);
+        logger.info(`   Connection String Type: ${process.env.MONGODB_URI.includes('mongodb+srv') ? 'SRV' : 'Standard'}`);
 
         // Handle connection events
         mongoose.connection.on('error', (err) => {
@@ -38,6 +33,10 @@ const connectDB = async () => {
         return conn;
     } catch (error) {
         logger.error('Database connection error:', error);
+        console.error('\n❌ CONNECTION ERROR DETAILS:');
+        console.error('   Name:', error.name);
+        console.error('   Message:', error.message);
+        console.error('   Code:', error.code);
         process.exit(1);
     }
 };

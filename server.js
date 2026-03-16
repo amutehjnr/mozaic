@@ -23,10 +23,22 @@ const app = express();
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
-    console.error(err);
+    console.error('\n========== UNCAUGHT EXCEPTION ==========');
+    console.error('Time:', new Date().toISOString());
+    console.error('Name:', err.name);
+    console.error('Message:', err.message);
+    console.error('Stack:', err.stack);
+    console.error('=========================================\n');
     logger.error('UNCAUGHT EXCEPTION!', err);
     process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('\n========== UNHANDLED REJECTION ==========');
+    console.error('Time:', new Date().toISOString());
+    console.error('Reason:', reason);
+    console.error('=========================================\n');
+    logger.error('UNHANDLED REJECTION!', reason);
 });
 
 // ==================== Security Middleware ====================
@@ -64,27 +76,50 @@ app.use(cookieParser());
 // ==================== Static Files ====================
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== Connect to MongoDB and Start Server ====================
+// ==================== Connect to MongoDB with Enhanced Error Handling ====================
+console.log('\n🔄 Attempting to connect to MongoDB...');
+console.log('   MongoDB URI exists:', !!process.env.MONGODB_URI);
+if (process.env.MONGODB_URI) {
+    console.log('   URI starts with:', process.env.MONGODB_URI.substring(0, 20) + '...');
+}
+
 connectDB().then(() => {
+    console.log('✅ Database connected successfully');
+    console.log('   Connection state:', mongoose.connection.readyState);
+    console.log('   Database name:', mongoose.connection.name);
+    console.log('   Host:', mongoose.connection.host);
+    
+    // Test the connection by running a simple command
+    mongoose.connection.db.admin().ping((err, result) => {
+        if (err) {
+            console.error('❌ Database ping failed:', err);
+            console.error('   This indicates a connection issue despite the initial success');
+        } else {
+            console.log('✅ Database ping successful');
+        }
+    });
+    
     // ==================== Register ALL Models AFTER connection ====================
     console.log('\n📦 Registering Mongoose models...');
     
-    // Import all models to ensure they're registered with Mongoose
-    require('./src/models/User');
-    require('./src/models/PasswordReset');
-    require('./src/models/Wallet');
-    require('./src/models/Transaction');
-    require('./src/models/KycProfile');
-    require('./src/models/Beneficiary');
-    require('./src/models/Referral');
-    
-    console.log('✅ All models registered successfully');
+    try {
+        require('./src/models/User');
+        require('./src/models/PasswordReset');
+        require('./src/models/Wallet');
+        require('./src/models/Transaction');
+        require('./src/models/KycProfile');
+        require('./src/models/Beneficiary');
+        require('./src/models/Referral');
+        console.log('✅ All models registered successfully');
+    } catch (modelError) {
+        console.error('❌ Error registering models:', modelError);
+    }
 
     // ==================== Session Configuration - FIXED FOR RENDER ====================
     const sessionConfig = {
         secret: process.env.SESSION_SECRET || 'dev-secret-key',
         resave: false,
-        saveUninitialized: true, // CRITICAL: Changed to true for Render
+        saveUninitialized: true,
         store: MongoStore.create({
             mongoUrl: process.env.MONGODB_URI,
             collectionName: 'sessions',
@@ -97,19 +132,18 @@ connectDB().then(() => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            // REMOVED domain option - let Express handle it
         },
         name: 'mozaic.sid',
         rolling: true,
-        proxy: true // CRITICAL: Added for Render
+        proxy: true
     };
 
     if (process.env.NODE_ENV === 'production') {
         app.set('trust proxy', 1);
     }
 
-    // IMPORTANT: Session MUST come before everything else
     app.use(session(sessionConfig));
+    console.log('✅ Session middleware initialized');
 
     // ==================== Flash Messages ====================
     app.use(flash());
@@ -119,7 +153,6 @@ connectDB().then(() => {
     app.set('views', path.join(__dirname, 'views'));
 
     // ==================== Critical Health Check Routes ====================
-    // These must respond IMMEDIATELY for Render
     app.get('/health', (req, res) => {
         res.status(200).json({ status: 'healthy', time: Date.now() });
     });
@@ -145,7 +178,6 @@ connectDB().then(() => {
         res.locals.formData = {};
         res.locals.csrfToken = '';
         
-        // SIMPLIFIED url helper - no complex logic
         res.locals.url = (path) => {
             if (!path) return '';
             return path.startsWith('/') ? path : '/' + path;
@@ -158,7 +190,7 @@ connectDB().then(() => {
     app.use('/api/', rateLimiter.api);
     app.use('/auth/', rateLimiter.auth);
 
-    // ==================== CSRF Protection - FIXED VERSION ====================
+    // ==================== CSRF Protection ====================
     try {
         app.use(setupCsrf());
         console.log('✅ CSRF middleware initialized');
@@ -177,7 +209,9 @@ connectDB().then(() => {
         });
     });
 
-    // Debug route to check environment
+    // ==================== DIAGNOSTIC ROUTES ====================
+    
+    // Debug environment
     app.get('/debug/env', (req, res) => {
         res.json({
             NODE_ENV: process.env.NODE_ENV,
@@ -189,7 +223,67 @@ connectDB().then(() => {
         });
     });
 
-    // Load auth routes
+    // Debug database connection
+    app.get('/debug/db', async (req, res) => {
+        try {
+            const state = mongoose.connection.readyState;
+            const stateMap = {
+                0: 'disconnected',
+                1: 'connected',
+                2: 'connecting',
+                3: 'disconnecting'
+            };
+            
+            let pingResult = null;
+            let collections = [];
+            
+            if (state === 1) {
+                try {
+                    pingResult = await mongoose.connection.db.admin().ping();
+                    collections = await mongoose.connection.db.listCollections().toArray();
+                    collections = collections.map(c => c.name);
+                } catch (pingErr) {
+                    pingResult = { error: pingErr.message };
+                }
+            }
+            
+            res.json({
+                connectionState: stateMap[state] || 'unknown',
+                readyState: state,
+                databaseName: mongoose.connection.name,
+                host: mongoose.connection.host,
+                port: mongoose.connection.port,
+                ping: pingResult,
+                collections: collections,
+                models: Object.keys(mongoose.models)
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                error: error.message,
+                stack: error.stack 
+            });
+        }
+    });
+
+    // Debug MongoDB URI (safe version)
+    app.get('/debug/uri', (req, res) => {
+        const uri = process.env.MONGODB_URI || '';
+        const safeUri = uri.replace(/:[^:@]+@/, ':****@');
+        res.json({
+            exists: !!process.env.MONGODB_URI,
+            safeUri: safeUri,
+            length: uri.length,
+            format: uri.startsWith('mongodb+srv://') ? 'SRV' : 'Standard'
+        });
+    });
+
+    // Simple ping test
+    app.get('/ping', (req, res) => {
+        res.json({ pong: true, time: Date.now() });
+    });
+
+    // ==================== Load Routes ====================
+    
     console.log('📂 Loading auth routes...');
     try {
         const authRoutes = require('./src/routes/web/auth');
@@ -199,7 +293,6 @@ connectDB().then(() => {
         console.error('❌ Failed to load auth routes:', error.message);
     }
 
-    // Load dashboard routes
     console.log('📂 Loading dashboard routes...');
     try {
         const dashboardRoutes = require('./src/routes/web/dashboard');
@@ -209,7 +302,6 @@ connectDB().then(() => {
         console.error('❌ Failed to load dashboard routes:', error.message);
     }
 
-    // Load API routes
     console.log('📂 Loading API routes...');
     try {
         const apiRoutes = require('./src/routes/api/index');
@@ -243,21 +335,25 @@ connectDB().then(() => {
     // ==================== Error Handler ====================
     app.use(errorHandler);
 
-    // ==================== Start Server - FIXED FOR RENDER ====================
+    // ==================== Start Server ====================
     const PORT = process.env.PORT || 3000;
     const server = http.createServer(app);
 
     server.listen(PORT, '0.0.0.0', () => {
-        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`\n✅ Server running on port ${PORT}`);
         console.log(`   Environment: ${process.env.NODE_ENV}`);
         console.log(`   Base URL: ${process.env.BASE_URL}`);
         console.log(`   Login page: /auth/login`);
+        console.log(`\n📊 Debug endpoints:`);
+        console.log(`   - /ping`);
+        console.log(`   - /debug/env`);
+        console.log(`   - /debug/db`);
+        console.log(`   - /debug/uri\n`);
     });
 
     // Handle unhandled rejections
     process.on('unhandledRejection', (err) => {
         console.error('UNHANDLED REJECTION:', err);
-        server.close(() => process.exit(1));
     });
 
     // Graceful shutdown
@@ -269,7 +365,34 @@ connectDB().then(() => {
     });
 
 }).catch(err => {
-    console.error('Failed to connect to database:', err);
+    console.error('\n❌❌❌ DATABASE CONNECTION FAILED ❌❌❌');
+    console.error('Time:', new Date().toISOString());
+    console.error('Error name:', err.name);
+    console.error('Error message:', err.message);
+    console.error('Error code:', err.code);
+    console.error('Stack trace:', err.stack);
+    
+    // Check for specific MongoDB errors
+    if (err.name === 'MongoServerError') {
+        if (err.code === 18) {
+            console.error('🔑 Authentication failed - check username/password in MONGODB_URI');
+        } else if (err.code === 7) {
+            console.error('🌐 Network error - check IP whitelist in MongoDB Atlas');
+        }
+    }
+    
+    if (err.message.includes('getaddrinfo')) {
+        console.error('🌐 DNS resolution failed - check hostname in connection string');
+    }
+    
+    if (err.message.includes('timed out')) {
+        console.error('⏱️ Connection timeout - check network/firewall settings');
+    }
+    
+    if (err.message.includes('bad auth')) {
+        console.error('🔑 Authentication failed - username or password is incorrect');
+    }
+    
     process.exit(1);
 });
 
