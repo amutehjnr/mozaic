@@ -9,21 +9,21 @@ class VTPassService {
         this.username = process.env.VTPASS_USERNAME;
         this.password = process.env.VTPASS_PASSWORD;
         this.sandbox = process.env.VTPASS_SANDBOX === 'true';
-        
-        this.baseURL = this.sandbox 
-            ? 'https://sandbox.vtpass.com/api' 
+
+        this.baseURL = this.sandbox
+            ? 'https://sandbox.vtpass.com/api'
             : 'https://api.vtpass.com/api';
-        
+
         this.client = axios.create({
             baseURL: this.baseURL,
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'api-key': this.apiKey,
-                'secret-key': this.secretKey,
-                'public-key': this.apiKey
+                'api-key': this.apiKey || '',
+                'secret-key': this.secretKey || '',
+                'public-key': this.apiKey || ''
             },
-            timeout: 30000 // 30 seconds
+            timeout: 30000
         });
 
         // Request interceptor for logging
@@ -51,6 +51,13 @@ class VTPassService {
     }
 
     /**
+     * Check if VTPass is configured
+     */
+    isConfigured() {
+        return !!(this.apiKey && this.secretKey);
+    }
+
+    /**
      * Generate request ID
      */
     generateRequestId() {
@@ -60,9 +67,20 @@ class VTPassService {
     }
 
     /**
-     * Make API request with retry logic
+     * Make API request with retry logic.
+     * Does NOT retry on 401/403 — those are auth failures, retrying wastes time.
      */
     async makeRequest(endpoint, data, method = 'POST', retries = 2) {
+        // Fail fast if credentials are not set
+        if (!this.isConfigured()) {
+            return {
+                ok: false,
+                error: 'VTPass API credentials are not configured. Please set VTPASS_API_KEY and VTPASS_SECRET_KEY.',
+                data: { response_description: 'Service not configured' },
+                status: 503
+            };
+        }
+
         for (let i = 0; i <= retries; i++) {
             try {
                 const response = await this.client({
@@ -78,18 +96,31 @@ class VTPassService {
                     status: response.status
                 };
             } catch (error) {
+                const status = error.response?.status;
                 const isLastAttempt = i === retries;
-                
+
+                // Never retry authentication errors — they won't fix themselves
+                if (status === 401 || status === 403) {
+                    return {
+                        ok: false,
+                        error: status === 401
+                            ? 'VTPass authentication failed. Check your API credentials.'
+                            : 'VTPass access forbidden. Check your API key permissions.',
+                        data: error.response?.data,
+                        status
+                    };
+                }
+
                 if (isLastAttempt) {
                     return {
                         ok: false,
                         error: error.message,
                         data: error.response?.data,
-                        status: error.response?.status
+                        status
                     };
                 }
 
-                // Exponential backoff
+                // Exponential backoff for transient errors
                 await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
             }
         }
@@ -108,11 +139,7 @@ class VTPassService {
      */
     async verify(serviceID, billersCode, type = '') {
         const endpoint = '/merchant-verify';
-        const data = {
-            serviceID,
-            billersCode,
-            type
-        };
+        const data = { serviceID, billersCode, type };
         return await this.makeRequest(endpoint, data);
     }
 
@@ -133,10 +160,7 @@ class VTPassService {
      */
     async queryStatus(request_id, serviceID) {
         const endpoint = '/requery';
-        const data = {
-            request_id,
-            serviceID
-        };
+        const data = { request_id, serviceID };
         return await this.makeRequest(endpoint, data);
     }
 
@@ -165,7 +189,6 @@ class VTPassService {
         if (serviceID) params.serviceID = serviceID;
         if (startDate) params.startDate = startDate;
         if (endDate) params.endDate = endDate;
-        
         return await this.makeRequest(endpoint, params, 'GET');
     }
 
@@ -183,7 +206,7 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[network.toLowerCase()] || network;
-        
+
         const data = {
             serviceID,
             amount: amount.toString(),
@@ -207,7 +230,7 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[network.toLowerCase()] || `${network}-data`;
-        
+
         const data = {
             serviceID,
             billersCode: phone,
@@ -232,9 +255,9 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[network.toLowerCase()] || `${network}-data`;
-        
+
         const response = await this.getVariations(serviceID);
-        
+
         if (response.ok && response.data && response.data.content) {
             const variations = response.data.content.variations || [];
             return variations.map(v => ({
@@ -244,7 +267,7 @@ class VTPassService {
                 serviceID
             }));
         }
-        
+
         return [];
     }
 
@@ -260,7 +283,7 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[disco.toLowerCase()] || disco;
-        
+
         const data = {
             serviceID,
             billersCode: meterNo,
@@ -285,7 +308,7 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[provider.toLowerCase()] || provider;
-        
+
         const data = {
             serviceID,
             billersCode: smartcard,
@@ -309,21 +332,21 @@ class VTPassService {
         };
 
         const serviceID = serviceMap[provider.toLowerCase()] || provider;
-        
+
         // First verify smartcard if provided
         let customerName = null;
         if (smartcard) {
             const verifyResponse = await this.verify(serviceID, smartcard);
             if (verifyResponse.ok && verifyResponse.data) {
-                customerName = verifyResponse.data.customer_name || 
-                              verifyResponse.data.Customer_Name || 
+                customerName = verifyResponse.data.customer_name ||
+                              verifyResponse.data.Customer_Name ||
                               verifyResponse.data.content?.Customer_Name;
             }
         }
-        
+
         // Get packages
         const response = await this.getVariations(serviceID);
-        
+
         if (response.ok && response.data && response.data.content) {
             const variations = response.data.content.variations || [];
             const packages = variations.map(v => ({
@@ -332,19 +355,11 @@ class VTPassService {
                 amount: parseFloat(v.variation_amount) || 0,
                 serviceID
             }));
-            
-            return {
-                ok: true,
-                packages,
-                customerName
-            };
+
+            return { ok: true, packages, customerName };
         }
-        
-        return {
-            ok: false,
-            packages: [],
-            customerName: null
-        };
+
+        return { ok: false, packages: [], customerName: null };
     }
 
     /**

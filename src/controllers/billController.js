@@ -6,6 +6,21 @@ const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
+/**
+ * Extract a human-readable error message from a VTPass response.
+ * VTPass uses several different fields depending on the error type.
+ */
+function vtpassError(vtpassResponse) {
+    const d = vtpassResponse?.data;
+    return (
+        d?.response_description ||
+        d?.error ||
+        d?.message ||
+        vtpassResponse?.error ||
+        'Payment provider request failed'
+    );
+}
+
 class BillController {
     /**
      * Get data plans
@@ -19,9 +34,12 @@ class BillController {
         }
 
         try {
+            // Return empty plans with a clear message when VTPass is not configured
+            if (!vtpassService.isConfigured()) {
+                return res.json([]);
+            }
+
             const plans = await vtpassService.getDataPlans(network);
-            // vtpassService.getDataPlans already returns a mapped array
-            // Return it directly as an array (not wrapped) so frontend can handle both formats
             res.json(Array.isArray(plans) ? plans : []);
         } catch (error) {
             logger.error('Get data plans error:', error);
@@ -36,6 +54,14 @@ class BillController {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(422).json({ ok: false, error: errors.array()[0].msg });
+        }
+
+        // Guard: VTPass not configured
+        if (!vtpassService.isConfigured()) {
+            return res.status(503).json({
+                ok: false,
+                error: 'Data purchase is not available — service credentials are not configured.'
+            });
         }
 
         const { network, phone, planCode, amount, confirm } = req.body;
@@ -74,15 +100,11 @@ class BillController {
             }
 
             const requestId = vtpassService.generateRequestId();
-
             const vtpassResponse = await vtpassService.buyData(network, phone, planCode, requestId);
 
             if (!vtpassResponse.ok) {
                 await session.abortTransaction(); session.endSession();
-                const errorMsg = vtpassResponse.data?.response_description ||
-                                 vtpassResponse.data?.error ||
-                                 'VTPass payment failed';
-                return res.status(400).json({ ok: false, error: errorMsg });
+                return res.status(400).json({ ok: false, error: vtpassError(vtpassResponse) });
             }
 
             await wallet.debit(parseFloat(amount), session);
@@ -159,6 +181,14 @@ class BillController {
             return res.status(422).json({ ok: false, error: errors.array()[0].msg });
         }
 
+        // Guard: VTPass not configured
+        if (!vtpassService.isConfigured()) {
+            return res.status(503).json({
+                ok: false,
+                error: 'Airtime purchase is not available — service credentials are not configured.'
+            });
+        }
+
         const { network, phone, amount, confirm } = req.body;
         const session = await mongoose.startSession();
 
@@ -193,15 +223,11 @@ class BillController {
             }
 
             const requestId = vtpassService.generateRequestId();
-
             const vtpassResponse = await vtpassService.buyAirtime(network, phone, amount, requestId);
 
             if (!vtpassResponse.ok) {
                 await session.abortTransaction(); session.endSession();
-                const errorMsg = vtpassResponse.data?.response_description ||
-                                 vtpassResponse.data?.error ||
-                                 'VTPass payment failed';
-                return res.status(400).json({ ok: false, error: errorMsg });
+                return res.status(400).json({ ok: false, error: vtpassError(vtpassResponse) });
             }
 
             await wallet.debit(parseFloat(amount), session);
@@ -276,6 +302,11 @@ class BillController {
             return res.status(400).json({ ok: false, error: 'Provider is required' });
         }
 
+        // Return empty packages when VTPass is not configured
+        if (!vtpassService.isConfigured()) {
+            return res.json({ ok: true, packages: [], customerName: null, smartcard });
+        }
+
         try {
             const result = await vtpassService.getTVPackages(provider, smartcard);
 
@@ -298,6 +329,14 @@ class BillController {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(422).json({ ok: false, error: errors.array()[0].msg });
+        }
+
+        // Guard: VTPass not configured
+        if (!vtpassService.isConfigured()) {
+            return res.status(503).json({
+                ok: false,
+                error: 'TV subscription is not available — service credentials are not configured.'
+            });
         }
 
         const { provider, card, package: packageCode, amount, phone, confirm } = req.body;
@@ -335,15 +374,11 @@ class BillController {
             }
 
             const requestId = vtpassService.generateRequestId();
-
             const vtpassResponse = await vtpassService.buyTV(provider, card, packageCode, phone || card, requestId);
 
             if (!vtpassResponse.ok) {
                 await session.abortTransaction(); session.endSession();
-                const errorMsg = vtpassResponse.data?.response_description ||
-                                 vtpassResponse.data?.error ||
-                                 'VTPass payment failed';
-                return res.status(400).json({ ok: false, error: errorMsg });
+                return res.status(400).json({ ok: false, error: vtpassError(vtpassResponse) });
             }
 
             await wallet.debit(parseFloat(amount), session);
@@ -409,6 +444,14 @@ class BillController {
             return res.status(422).json({ ok: false, error: errors.array()[0].msg });
         }
 
+        // Guard: VTPass not configured
+        if (!vtpassService.isConfigured()) {
+            return res.status(503).json({
+                ok: false,
+                error: 'Electricity payment is not available — service credentials are not configured.'
+            });
+        }
+
         const { disco, meterNo, meterType, amount, phone, confirm } = req.body;
         const session = await mongoose.startSession();
 
@@ -444,17 +487,13 @@ class BillController {
             }
 
             const requestId = vtpassService.generateRequestId();
-
             const vtpassResponse = await vtpassService.buyElectricity(
                 disco, meterNo, meterType, amount, phone || meterNo, requestId
             );
 
             if (!vtpassResponse.ok) {
                 await session.abortTransaction(); session.endSession();
-                const errorMsg = vtpassResponse.data?.response_description ||
-                                 vtpassResponse.data?.error ||
-                                 'VTPass payment failed';
-                return res.status(400).json({ ok: false, error: errorMsg });
+                return res.status(400).json({ ok: false, error: vtpassError(vtpassResponse) });
             }
 
             await wallet.debit(parseFloat(amount), session);
@@ -522,23 +561,30 @@ class BillController {
             return res.status(400).json({ ok: false, error: 'Provider and number are required' });
         }
 
+        // Return a soft error when VTPass is not configured
+        if (!vtpassService.isConfigured()) {
+            return res.status(503).json({
+                ok: false,
+                error: 'Verification service is not available — provider credentials are not configured.'
+            });
+        }
+
         try {
             const serviceMap = {
-                'dstv':     'dstv',
-                'gotv':     'gotv',
-                'startimes':'startimes',
-                'aedc':     'aedc',
-                'ikedc':    'ikeja-electric',
-                'ekedc':    'ekedc',
-                'kedco':    'kedco',
-                'phed':     'phed',
-                'ibedc':    'ibedc',
-                'eedc':     'eedc',
-                'jed':      'jed'
+                'dstv':      'dstv',
+                'gotv':      'gotv',
+                'startimes': 'startimes',
+                'aedc':      'aedc',
+                'ikedc':     'ikeja-electric',
+                'ekedc':     'ekedc',
+                'kedco':     'kedco',
+                'phed':      'phed',
+                'ibedc':     'ibedc',
+                'eedc':      'eedc',
+                'jed':       'jed'
             };
 
             const serviceID = serviceMap[provider.toLowerCase()] || provider;
-
             const response = await vtpassService.verify(serviceID, number, type || '');
 
             if (!response.ok || !response.data) {
