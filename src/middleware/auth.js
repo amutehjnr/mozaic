@@ -60,29 +60,21 @@ const isAuthenticated = async (req, res, next) => {
 };
 
 /**
- * Check if user is guest (not authenticated) - FIXED VERSION
+ * Check if user is guest (not authenticated) - ULTRA SAFE VERSION
  */
-const isGuest = async (req, res, next) => {
-    // If no session or no userId, they're a guest - proceed immediately
-    if (!req.session || !req.session.userId) {
-        return next();
-    }
-
+const isGuest = (req, res, next) => {
     try {
-        const user = await User.findById(req.session.userId);
-        
-        if (user && user.isActive) {
-            // User is logged in - redirect to dashboard
+        // Ultra simple - just check if session exists and has userId
+        if (req.session && req.session.userId) {
+            // User is logged in, redirect to dashboard
             return res.redirect('/dashboard/user');
         }
-        
-        // User not found or inactive - destroy session and proceed
-        req.session.destroy(() => next());
-        
+        // Not logged in, proceed to login page
+        next();
     } catch (error) {
         console.error('isGuest error:', error);
-        // On error, destroy session and proceed
-        req.session.destroy(() => next());
+        // On any error, still let them see the login page
+        next();
     }
 };
 
