@@ -256,8 +256,8 @@ app.get('/debug/env', (req, res) => {
 
     // ==================== CSRF Protection ====================
     // This must come AFTER session but BEFORE routes
-    setupCsrf(app);
-
+    app.use(setupCsrf)
+    
     // ==================== Routes ====================
 
     // Home page route
