@@ -50,9 +50,7 @@ router.get('/reset', isGuest, authController.showResetPage);
  */
 router.post('/register', 
     handleMultipart,
-    isGuest,
     rateLimiter.auth,
-    csrfProtection,
     validate(registerValidation),
     authController.registerWeb
 );
@@ -60,7 +58,6 @@ router.post('/register',
 router.post('/login', 
     handleMultipart,
     rateLimiter.auth,
-    csrfProtection,
     validate(loginValidation),
     authController.loginWeb
 );
