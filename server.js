@@ -12,27 +12,28 @@ const http = require('http');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
-// Import middleware
+// Middleware & utils
 const rateLimiter = require('./src/middleware/rateLimiter');
 const { errorHandler } = require('./src/middleware/errorHandler');
-const { setupCsrf, csrfProtection, generateToken } = require('./src/middleware/csrf');
+const { setupCsrf, generateToken } = require('./src/middleware/csrf');
 const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/database');
 
 const app = express();
 
-// ==================== Error Handling ====================
+// Handle uncaught exceptions & unhandled rejections
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
     logger.error('UNCAUGHT EXCEPTION!', err);
     process.exit(1);
 });
+
 process.on('unhandledRejection', (reason) => {
     console.error('UNHANDLED REJECTION:', reason);
     logger.error('UNHANDLED REJECTION!', reason);
 });
 
-// ==================== Security & Middleware ====================
+// ================ Security Middleware ==================
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -42,31 +43,35 @@ app.use(helmet({
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://cdn.jsdelivr.net"],
             connectSrc: ["'self'", "https://api.flutterwave.com", "https://api.vtpass.com"],
-        },
+        }
     },
     crossOriginEmbedderPolicy: false,
 }));
 
+// ================ CORS ==================
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
+    origin: process.env.NODE_ENV === 'production'
         ? ['https://mozaic-eomm.onrender.com', process.env.BASE_URL].filter(Boolean)
         : ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
     optionsSuccessStatus: 200
 }));
 
+// ================ Compression & Parsers ==================
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// ================ Static Files ==================
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== MongoDB Connection ====================
+// ================ MongoDB Connection ==================
 console.log('🔄 Connecting to MongoDB...');
-connectDB().then(() => {
-    console.log('✅ Database connected successfully');
+connectDB().then(async () => {
+    console.log('✅ Database connected:', mongoose.connection.name);
 
-    // ==================== Register Models ====================
+    // Register models
     try {
         require('./src/models/User');
         require('./src/models/PasswordReset');
@@ -75,12 +80,12 @@ connectDB().then(() => {
         require('./src/models/KycProfile');
         require('./src/models/Beneficiary');
         require('./src/models/Referral');
-        console.log('✅ All models registered');
-    } catch (modelError) {
-        console.error('❌ Error registering models:', modelError);
+        console.log('✅ Models registered');
+    } catch (err) {
+        console.error('❌ Model registration failed:', err);
     }
 
-    // ==================== Session ====================
+    // ================ Session ==================
     const sessionConfig = {
         secret: process.env.SESSION_SECRET || 'dev-secret-key',
         resave: false,
@@ -96,24 +101,23 @@ connectDB().then(() => {
             maxAge: parseInt(process.env.SESSION_MAX_AGE) || 86400000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: 'lax'
         },
         name: 'mozaic.sid',
         rolling: true,
         proxy: true
     };
+
     if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
     app.use(session(sessionConfig));
     console.log('✅ Session initialized');
 
-    // ==================== Flash ====================
+    // ================ Flash & Views ==================
     app.use(flash());
-
-    // ==================== View Engine ====================
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
 
-    // ==================== Global Middleware ====================
+    // ================ Global Middleware ==================
     app.use((req, res, next) => {
         res.locals.user = req.session?.user || null;
         res.locals.currentUrl = req.originalUrl;
@@ -125,39 +129,50 @@ connectDB().then(() => {
         res.locals.bodyClass = '';
         res.locals.formData = {};
         res.locals.csrfToken = '';
-        res.locals.url = (path) => path ? (path.startsWith('/') ? path : '/' + path) : '';
+        res.locals.url = (p) => p?.startsWith('/') ? p : '/' + (p || '');
         next();
     });
 
-    // ==================== Rate Limiting ====================
+    // ================ Rate Limiting ==================
     app.use('/api/', rateLimiter.api);
     app.use('/auth/', rateLimiter.auth);
 
-    // ==================== CSRF Protection ====================
+    // ================ CSRF Middleware ==================
     app.use(setupCsrf());
 
-    // Optional endpoint to fetch CSRF token
-    app.get('/api/csrf', (req, res) => {
-        const token = generateToken();
-        res.cookie('XSRF-TOKEN', token, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000
-        });
-        res.json({ csrfToken: token });
-    });
-
-    // ==================== Routes ====================
+    // ================= Routes ==================
+    // Home page
     app.get('/', (req, res) => {
-        res.render('home', { 
+        res.render('home', {
             title: 'MozAic - Buy Data, Airtime & Pay Bills',
             bodyClass: 'home-page',
             flashMessages: req.flash()
         });
     });
 
-    // ==================== Diagnostic Routes ====================
+    // Session-less CSRF endpoint
+    app.get('/api/csrf', (req, res) => {
+        try {
+            const token = generateToken();
+            res.cookie('XSRF-TOKEN', token, {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 24 * 60 * 60 * 1000
+            });
+            res.json({ csrfToken: token });
+        } catch (err) {
+            console.error('❌ CSRF generation failed:', err);
+            res.status(500).json({ ok: false, error: 'Failed to generate CSRF token' });
+        }
+    });
+
+    // Health check
+    app.get('/health', (req, res) => res.json({ status: 'healthy', time: Date.now() }));
+    app.head('/health', (req, res) => res.status(200).end());
+    app.head('/', (req, res) => res.status(200).end());
+
+    // Debug routes
     app.get('/debug/env', (req, res) => {
         res.json({
             NODE_ENV: process.env.NODE_ENV,
@@ -169,63 +184,48 @@ connectDB().then(() => {
         });
     });
 
-    app.get('/debug/db', async (req, res) => {
-        try {
-            const state = mongoose.connection.readyState;
-            const stateMap = {0:'disconnected',1:'connected',2:'connecting',3:'disconnecting'};
-            let pingResult = null, collections = [];
-            if(state === 1){
-                pingResult = await mongoose.connection.db.admin().ping();
-                collections = (await mongoose.connection.db.listCollections().toArray()).map(c => c.name);
-            }
-            res.json({
-                connectionState: stateMap[state] || 'unknown',
-                readyState: state,
-                databaseName: mongoose.connection.name,
-                host: mongoose.connection.host,
-                port: mongoose.connection.port,
-                ping: pingResult,
-                collections,
-                models: Object.keys(mongoose.models)
-            });
-        } catch(err){
-            res.status(500).json({ error: err.message, stack: err.stack });
+    // Load other routes
+    try {
+        app.use('/auth', require('./src/routes/web/auth'));
+        app.use('/dashboard', require('./src/routes/web/dashboard'));
+        app.use('/api', require('./src/routes/api/index'));
+        console.log('✅ All routes loaded');
+    } catch (err) {
+        console.error('❌ Route loading error:', err);
+    }
+
+    // Test route
+    app.get('/test', (req, res) => res.send('✅ Server test route working!'));
+
+    // 404 handler
+    app.use((req, res) => {
+        if (req.xhr || req.path.startsWith('/api/')) {
+            return res.status(404).json({ ok: false, error: 'Endpoint not found' });
         }
+        res.status(404).render('error/404', {
+            title: 'Page Not Found',
+            bodyClass: 'error-page',
+            flashMessages: req.flash ? req.flash() : {}
+        });
     });
 
-    app.get('/debug/uri', (req,res)=>{
-        const uri = process.env.MONGODB_URI || '';
-        const safeUri = uri.replace(/:[^:@]+@/, ':****@');
-        res.json({ exists: !!process.env.MONGODB_URI, safeUri, length: uri.length, format: uri.startsWith('mongodb+srv://')?'SRV':'Standard' });
-    });
-
-    app.get('/ping', (req,res)=>res.json({ pong:true, time: Date.now() }));
-
-    // ==================== Load Routes ====================
-    try { app.use('/auth', require('./src/routes/web/auth')); console.log('✅ Auth routes loaded'); } 
-    catch(e){ console.error('❌ Failed auth routes:', e.message); }
-    try { app.use('/dashboard', require('./src/routes/web/dashboard')); console.log('✅ Dashboard routes loaded'); } 
-    catch(e){ console.error('❌ Failed dashboard routes:', e.message); }
-    try { app.use('/api', require('./src/routes/api/index')); console.log('✅ API routes loaded'); } 
-    catch(e){ console.error('❌ Failed API routes:', e.message); }
-
-    app.get('/test', (req,res)=>res.send('✅ Server test route working!'));
-
-    // ==================== 404 Handler ====================
-    app.use((req,res)=>{
-        if(req.xhr || req.path.startsWith('/api/')) return res.status(404).json({ ok:false, error:'Endpoint not found' });
-        res.status(404).render('error/404',{ title:'Page Not Found', bodyClass:'error-page', flashMessages:req.flash?req.flash():{} });
-    });
-
-    // ==================== Error Handler ====================
+    // Global error handler
     app.use(errorHandler);
 
-    // ==================== Start Server ====================
+    // Start server
     const PORT = process.env.PORT || 3000;
     const server = http.createServer(app);
-    server.listen(PORT,'0.0.0.0',()=>console.log(`✅ Server running on port ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`   Environment: ${process.env.NODE_ENV}`);
+        console.log(`   Base URL: ${process.env.BASE_URL}`);
+    });
 
-    process.on('SIGTERM',()=>{ server.close(()=>mongoose.connection.close()); });
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM received, closing server...');
+        server.close(() => mongoose.connection.close());
+    });
 
 }).catch(err => {
     console.error('❌ DATABASE CONNECTION FAILED:', err);
