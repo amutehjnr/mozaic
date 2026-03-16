@@ -525,7 +525,7 @@ const normDetails = (t) => {
             </tr>
           </thead>
           <tbody>
-            <% if (rows.length === 0) { %>
+            <% if (transactions.length === 0) { %>
               <tr>
                 <td colspan="6">
                   <div class="empty-state">
@@ -536,7 +536,7 @@ const normDetails = (t) => {
                 </td>
               </tr>
             <% } else { 
-              rows.forEach(t => { 
+              transactions.forEach(t => { 
                 const amount = normAmount(t);
                 const isCredit = t.type === 'credit' || amount > 0;
             %>
@@ -594,24 +594,24 @@ const normDetails = (t) => {
       </div>
 
       <!-- Pagination -->
-      <% if (pages > 1) { %>
+      <% if (pagination.pages > 1) { %>
       <div class="card-footer bg-white d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <small class="text-muted">
-          Showing <span class="fw-semibold"><%= rows.length %></span> of 
-          <span class="fw-semibold"><%= total %></span> transactions
+          Showing <span class="fw-semibold"><%= transactions.length %></span> of 
+          <span class="fw-semibold"><%= pagination.total %></span> transactions
         </small>
 
         <nav aria-label="Transaction pagination">
           <ul class="pagination mb-0">
-            <li class="page-item <%= currentPage <= 1 ? 'disabled' : '' %>">
-              <a class="page-link" href="<%= currentPage <= 1 ? '#' : qkeep({page: currentPage - 1}) %>" aria-label="Previous">
+            <li class="page-item <%= pagination.page <= 1 ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= pagination.page <= 1 ? '#' : qkeep({page: pagination.page - 1}) %>" aria-label="Previous">
                 <i class="bi bi-chevron-left"></i>
               </a>
             </li>
             
             <% 
-              let startPage = Math.max(1, currentPage - 2);
-              let endPage = Math.min(pages, startPage + 4);
+              let startPage = Math.max(1, pagination.page - 2);
+              let endPage = Math.min(pagination.pages, startPage + 4);
               if (endPage - startPage < 4) {
                 startPage = Math.max(1, endPage - 4);
               }
@@ -625,20 +625,20 @@ const normDetails = (t) => {
             }
             
             for (let p = startPage; p <= endPage; p++) { %>
-              <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+              <li class="page-item <%= p === pagination.page ? 'active' : '' %>">
                 <a class="page-link" href="<%= qkeep({page: p}) %>"><%= p %></a>
               </li>
             <% }
             
-            if (endPage < pages) { 
-              if (endPage < pages - 1) { %>
+            if (endPage < pagination.pages) { 
+              if (endPage < pagination.pages - 1) { %>
                 <li class="page-item disabled"><span class="page-link">...</span></li>
               <% } %>
-              <li class="page-item"><a class="page-link" href="<%= qkeep({page: pages}) %>"><%= pages %></a></li>
+              <li class="page-item"><a class="page-link" href="<%= qkeep({page: pagination.pages}) %>"><%= pagination.pages %></a></li>
             <% } %>
             
-            <li class="page-item <%= currentPage >= pages ? 'disabled' : '' %>">
-              <a class="page-link" href="<%= currentPage >= pages ? '#' : qkeep({page: currentPage + 1}) %>" aria-label="Next">
+            <li class="page-item <%= pagination.page >= pagination.pages ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= pagination.page >= pagination.pages ? '#' : qkeep({page: pagination.page + 1}) %>" aria-label="Next">
                 <i class="bi bi-chevron-right"></i>
               </a>
             </li>
@@ -710,7 +710,7 @@ const normDetails = (t) => {
 
 <script>
 // Transaction data for export
-const exportData = <%- JSON.stringify(rows.map(t => ({
+const exportData = <%- JSON.stringify(transactions.map(t => ({
     date: formatDateShort(normDate(t)),
     type: normType(t),
     details: normDetails(t),
@@ -747,7 +747,7 @@ async function exportCSV() {
         });
         
         // Create and download file
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // Add BOM for UTF-8
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         
@@ -885,23 +885,6 @@ document.getElementById('filterForm')?.addEventListener('submit', (e) => {
         showToast('"From" date cannot be after "To" date', 'danger');
     }
 });
-
-/**
- * Auto-submit on filter change (optional - uncomment if desired)
- */
-// document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(el => {
-//     el.addEventListener('change', () => {
-//         document.getElementById('filterForm').submit();
-//     });
-// });
-
-/**
- * Clear URL params on page load if they exist
- */
-if (window.location.search) {
-    // Store the params for display but we keep them for filtering
-    console.log('Active filters:', '<%= JSON.stringify(query) %>');
-}
 
 // Initialize tooltips
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
