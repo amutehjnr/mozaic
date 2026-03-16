@@ -41,9 +41,9 @@ const resetValidation = [
 /**
  * Guest routes (only accessible when not logged in)
  */
-router.get('/login', isGuest, authController.showAuthPage);
-router.get('/forgot', isGuest, authController.showForgotPage);
-router.get('/reset', isGuest, authController.showResetPage);
+router.get('/login', authController.showAuthPage);
+router.get('/forgot', authController.showForgotPage);
+router.get('/reset', authController.showResetPage);
 
 /**
  * POST routes with CSRF protection
@@ -57,7 +57,9 @@ router.post('/register',
 
 router.post('/login', 
     handleMultipart,
+    isGuest,
     rateLimiter.auth,
+    csrfProtection,
     validate(loginValidation),
     authController.loginWeb
 );
