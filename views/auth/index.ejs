@@ -340,7 +340,7 @@ if (typeof messages === 'undefined') var messages = {};
       });
     } catch (e) { console.warn('Form validation error:', e); }
     
-    // AJAX Login
+    // AJAX Login - FIXED VERSION
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
       loginForm.addEventListener('submit', async function(e) {
@@ -367,19 +367,50 @@ if (typeof messages === 'undefined') var messages = {};
             body: formData,
             credentials: 'same-origin',
             headers: {
-              'X-Requested-With': 'XMLHttpRequest'
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json' // Tell server we want JSON
             }
           });
           
-          const data = await response.json();
+          // Check the content type of the response
+          const contentType = response.headers.get('content-type');
           
-          if (data.ok) {
-            // Success - redirect to dashboard
-            window.location.href = data.redirect || '/dashboard/user';
+          if (contentType && contentType.includes('application/json')) {
+            // Server returned JSON - parse it
+            const data = await response.json();
+            
+            if (data.ok) {
+              // Success - redirect to dashboard
+              window.location.href = data.redirect || '/dashboard/user';
+            } else {
+              // Show error
+              errorDiv.textContent = data.error || 'Login failed. Please try again.';
+              errorDiv.style.display = 'block';
+            }
           } else {
-            // Show error
-            errorDiv.textContent = data.error || 'Login failed. Please try again.';
-            errorDiv.style.display = 'block';
+            // Server returned HTML - likely a redirect or error page
+            const text = await response.text();
+            
+            // If it's a redirect to dashboard (success)
+            if (text.includes('/dashboard/user') || response.url.includes('/dashboard/user')) {
+              window.location.href = '/dashboard/user';
+            } 
+            // If it's an error page
+            else if (text.includes('error') || text.includes('Error') || text.includes('alert-danger')) {
+              // Try to extract error message from HTML
+              const match = text.match(/<div class="alert alert-danger">(.*?)<\/div>/);
+              if (match && match[1]) {
+                errorDiv.textContent = match[1].replace(/<[^>]*>/g, '');
+              } else {
+                errorDiv.textContent = 'Login failed. Please try again.';
+              }
+              errorDiv.style.display = 'block';
+            }
+            // Fallback
+            else {
+              errorDiv.textContent = 'Login failed. Please try again.';
+              errorDiv.style.display = 'block';
+            }
           }
         } catch (error) {
           console.error('Login error:', error);
@@ -392,7 +423,7 @@ if (typeof messages === 'undefined') var messages = {};
       });
     }
     
-    // AJAX Signup
+    // AJAX Signup - FIXED VERSION
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
       signupForm.addEventListener('submit', async function(e) {
@@ -419,19 +450,50 @@ if (typeof messages === 'undefined') var messages = {};
             body: formData,
             credentials: 'same-origin',
             headers: {
-              'X-Requested-With': 'XMLHttpRequest'
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json' // Tell server we want JSON
             }
           });
           
-          const data = await response.json();
+          // Check the content type of the response
+          const contentType = response.headers.get('content-type');
           
-          if (data.ok) {
-            // Success - redirect to dashboard
-            window.location.href = data.redirect || '/dashboard/user';
+          if (contentType && contentType.includes('application/json')) {
+            // Server returned JSON - parse it
+            const data = await response.json();
+            
+            if (data.ok) {
+              // Success - redirect to dashboard
+              window.location.href = data.redirect || '/dashboard/user';
+            } else {
+              // Show error
+              errorDiv.textContent = data.error || 'Registration failed. Please try again.';
+              errorDiv.style.display = 'block';
+            }
           } else {
-            // Show error
-            errorDiv.textContent = data.error || 'Registration failed. Please try again.';
-            errorDiv.style.display = 'block';
+            // Server returned HTML - likely a redirect or error page
+            const text = await response.text();
+            
+            // If it's a redirect to dashboard (success)
+            if (text.includes('/dashboard/user') || response.url.includes('/dashboard/user')) {
+              window.location.href = '/dashboard/user';
+            } 
+            // If it's an error page
+            else if (text.includes('error') || text.includes('Error') || text.includes('alert-danger')) {
+              // Try to extract error message from HTML
+              const match = text.match(/<div class="alert alert-danger">(.*?)<\/div>/);
+              if (match && match[1]) {
+                errorDiv.textContent = match[1].replace(/<[^>]*>/g, '');
+              } else {
+                errorDiv.textContent = 'Registration failed. Please try again.';
+              }
+              errorDiv.style.display = 'block';
+            }
+            // Fallback
+            else {
+              errorDiv.textContent = 'Registration failed. Please try again.';
+              errorDiv.style.display = 'block';
+            }
           }
         } catch (error) {
           console.error('Signup error:', error);
