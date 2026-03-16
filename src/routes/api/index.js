@@ -18,10 +18,9 @@ const userController        = require('../../controllers/userController');
 const adminController       = require('../../controllers/adminController');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PUBLIC ROUTES  (no auth required)
+// PUBLIC ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Auth ──────────────────────────────────────────────────────────────────
 router.post('/auth/register',
     rateLimiter.auth,
     validate([
@@ -59,52 +58,38 @@ router.post('/auth/reset',
     authController.resetPassword.bind(authController)
 );
 
-// ── Public bill data ──────────────────────────────────────────────────────
-router.get('/bill/data/plans', billController.getDataPlans.bind(billController));
+// Public bill data
+router.get('/bill/data/plans',  billController.getDataPlans.bind(billController));
 router.get('/bill/tv/packages', billController.getTVPackages.bind(billController));
-router.get('/bill/verify', billController.verifyCustomer.bind(billController));
+router.get('/bill/verify',      billController.verifyCustomer.bind(billController));
 
-// ── Flutterwave webhook (server-to-server, no user session) ───────────────
+// Flutterwave (no auth — external redirects)
 router.post('/webhook/flutterwave', walletController.handleFlutterwaveWebhook.bind(walletController));
+router.get('/payment/callback',     walletController.handlePaymentCallback.bind(walletController));
 
-// ── Flutterwave payment callback (browser redirect from payment gateway) ──
-//    Must be PUBLIC — the user's session may not be available after the
-//    external payment redirect.  We verify the transaction via Flutterwave
-//    API, credit the wallet, then redirect the user to the dashboard.
-router.get('/payment/callback', walletController.handlePaymentCallback.bind(walletController));
-
-// ── CSRF token endpoint ───────────────────────────────────────────────────
+// CSRF
 router.use('/csrf', require('./csrf'));
-
 router.get('/csrf-debug', (req, res) => {
     try {
-        const token = generateToken(req);
-        res.json({
-            ok:         true,
-            csrfToken:  token,
-            sessionId:  req.session?.id,
-            hasSecret:  !!req.session?.csrfSecret
-        });
+        res.json({ ok: true, csrfToken: generateToken(req), sessionId: req.session?.id });
     } catch (error) {
         res.status(500).json({ ok: false, error: error.message });
     }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PROTECTED ROUTES  (require authentication)
+// PROTECTED ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 router.use(isAuthenticated);
 
 // ── Wallet ────────────────────────────────────────────────────────────────
-router.get('/wallet',                   walletController.getWalletInfo.bind(walletController));
-router.get('/wallet/transactions',      walletController.getTransactions.bind(walletController));
-router.get('/wallet/transactions/:id',  walletController.getTransaction.bind(walletController));
-router.get('/wallet/stats',             walletController.getWalletStats.bind(walletController));
+router.get('/wallet',                  walletController.getWalletInfo.bind(walletController));
+router.get('/wallet/transactions',     walletController.getTransactions.bind(walletController));
+router.get('/wallet/transactions/:id', walletController.getTransaction.bind(walletController));
+router.get('/wallet/stats',            walletController.getWalletStats.bind(walletController));
 
 router.post('/wallet/fund',
-    handleMultipart,
-    rateLimiter.api,
-    csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
         body('amount').isFloat({ min: 100 }).withMessage('Amount must be at least ₦100'),
         body('method').isIn(['card', 'transfer', 'ussd']).withMessage('Invalid payment method')
@@ -113,9 +98,7 @@ router.post('/wallet/fund',
 );
 
 router.post('/wallet/withdraw',
-    handleMultipart,
-    rateLimiter.api,
-    csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
         body('amount').isFloat({ min: 100 }).withMessage('Amount must be at least ₦100'),
         body('bank').notEmpty().withMessage('Bank name is required'),
@@ -131,20 +114,11 @@ router.post('/wallet/requery',
     walletController.requeryTransaction.bind(walletController)
 );
 
-// Manual reconciliation — protected, available to all authenticated users
-// so they can trigger a re-check of their own pending transactions.
-router.post('/wallet/reconcile',
-    walletController.reconcilePendingTransactions.bind(walletController)
-);
+router.post('/wallet/reconcile', walletController.reconcilePendingTransactions.bind(walletController));
 
 // ── Bills ─────────────────────────────────────────────────────────────────
-// NOTE: handleMultipart is required on all bill POST routes because the
-// dashboard sends FormData (multipart/form-data). Without it, req.body
-// is empty and validation fails with "Invalid value" for all fields.
-
 router.post('/bill/airtime',
-    handleMultipart,
-    rateLimiter.api, csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
         body('network').isIn(['mtn', 'glo', 'airtel', '9mobile']),
         body('phone').isMobilePhone('any'),
@@ -155,8 +129,7 @@ router.post('/bill/airtime',
 );
 
 router.post('/bill/data',
-    handleMultipart,
-    rateLimiter.api, csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
         body('network').isIn(['mtn', 'glo', 'airtel', '9mobile']),
         body('phone').isMobilePhone('any'),
@@ -168,10 +141,9 @@ router.post('/bill/data',
 );
 
 router.post('/bill/electricity',
-    handleMultipart,
-    rateLimiter.api, csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
-        body('disco').isIn(['aedc', 'ikedc', 'ekedc', 'kedco']),
+        body('disco').isIn(['aedc', 'ikedc', 'ekedc', 'kedco', 'phed', 'ibedc', 'eedc', 'jed']),
         body('meterNo').notEmpty(),
         body('meterType').isIn(['prepaid', 'postpaid']),
         body('amount').isFloat({ min: 100 }),
@@ -182,8 +154,7 @@ router.post('/bill/electricity',
 );
 
 router.post('/bill/tv',
-    handleMultipart,
-    rateLimiter.api, csrfProtection,
+    handleMultipart, rateLimiter.api, csrfProtection,
     validate([
         body('provider').isIn(['dstv', 'gotv', 'startimes']),
         body('card').notEmpty(),
@@ -196,18 +167,30 @@ router.post('/bill/tv',
 );
 
 // ── Beneficiaries ─────────────────────────────────────────────────────────
-router.get('/beneficiaries',             beneficiaryController.getBeneficiaries.bind(beneficiaryController));
-router.get('/beneficiaries/:id',         beneficiaryController.getBeneficiary.bind(beneficiaryController));
+// NOTE: specific sub-routes (/frequent, /bulk/delete, /import) MUST come
+// before the /:id wildcard, otherwise Express will treat 'frequent' as an id.
+
+router.get('/beneficiaries',          beneficiaryController.getBeneficiaries.bind(beneficiaryController));
+router.get('/beneficiaries/frequent', beneficiaryController.getFrequentlyUsed.bind(beneficiaryController));
+
+// FIX: handleMultipart added — page submits FormData (multipart/form-data)
 router.post('/beneficiaries',
-    csrfProtection,
+    handleMultipart, csrfProtection,
     validate([
-        body('type').isIn(['data', 'airtime', 'electricity', 'tv']),
-        body('label').notEmpty(),
-        body('value').notEmpty(),
+        body('type').notEmpty().withMessage('Type is required'),
+        body('label').notEmpty().withMessage('Label is required'),
+        body('value').notEmpty().withMessage('Value is required'),
         body('provider').optional()
     ]),
     beneficiaryController.createBeneficiary.bind(beneficiaryController)
 );
+
+router.post('/beneficiaries/bulk/delete',   csrfProtection, beneficiaryController.bulkDelete.bind(beneficiaryController));
+router.post('/beneficiaries/import',        csrfProtection, beneficiaryController.importBeneficiaries.bind(beneficiaryController));
+
+// Single-item routes — keep these AFTER the non-id sub-routes above
+router.get('/beneficiaries/:id',            beneficiaryController.getBeneficiary.bind(beneficiaryController));
+
 router.put('/beneficiaries/:id',
     csrfProtection,
     validate([
@@ -218,10 +201,17 @@ router.put('/beneficiaries/:id',
     ]),
     beneficiaryController.updateBeneficiary.bind(beneficiaryController)
 );
-router.delete('/beneficiaries/:id',                  csrfProtection, beneficiaryController.deleteBeneficiary.bind(beneficiaryController));
-router.post('/beneficiaries/:id/usage',              beneficiaryController.incrementUsage.bind(beneficiaryController));
-router.post('/beneficiaries/bulk/delete',            csrfProtection, beneficiaryController.bulkDelete.bind(beneficiaryController));
-router.post('/beneficiaries/import',                 csrfProtection, beneficiaryController.importBeneficiaries.bind(beneficiaryController));
+
+router.delete('/beneficiaries/:id',
+    csrfProtection,
+    beneficiaryController.deleteBeneficiary.bind(beneficiaryController)
+);
+
+// FIX: /favorite added to match what the view JS calls
+// /toggle-favorite kept as alias for dashboard web routes
+router.post('/beneficiaries/:id/favorite',        csrfProtection, beneficiaryController.toggleFavorite.bind(beneficiaryController));
+router.post('/beneficiaries/:id/toggle-favorite', csrfProtection, beneficiaryController.toggleFavorite.bind(beneficiaryController));
+router.post('/beneficiaries/:id/usage',           beneficiaryController.incrementUsage.bind(beneficiaryController));
 
 // ── Referrals ─────────────────────────────────────────────────────────────
 router.get('/referrals',       referralController.getReferrals.bind(referralController));
@@ -249,9 +239,9 @@ router.post('/user/delete',
 // ── Admin ─────────────────────────────────────────────────────────────────
 router.use('/admin', isAdmin);
 
-router.get('/admin/stats',           adminController.getStats.bind(adminController));
-router.get('/admin/users',           adminController.getUsers.bind(adminController));
-router.get('/admin/users/:id',       adminController.getUserDetails.bind(adminController));
+router.get('/admin/stats',       adminController.getStats.bind(adminController));
+router.get('/admin/users',       adminController.getUsers.bind(adminController));
+router.get('/admin/users/:id',   adminController.getUserDetails.bind(adminController));
 router.put('/admin/users/:id',
     csrfProtection,
     validate([
@@ -277,10 +267,8 @@ router.post('/admin/wallet/adjust',
     ]),
     adminController.adjustWallet.bind(adminController)
 );
-router.get('/admin/logs',    adminController.getLogs.bind(adminController));
-router.get('/admin/health',  adminController.getHealth.bind(adminController));
-
-// Admin-only reconcile trigger
+router.get('/admin/logs',            adminController.getLogs.bind(adminController));
+router.get('/admin/health',          adminController.getHealth.bind(adminController));
 router.post('/admin/reconcile-pending', adminController.isAdmin, walletController.reconcilePendingTransactions.bind(walletController));
 
 module.exports = router;

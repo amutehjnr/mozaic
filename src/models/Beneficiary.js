@@ -7,6 +7,7 @@ const beneficiarySchema = new mongoose.Schema({
         required: true,
         index: true
     },
+    // FIX: lowercase enum values to match what the controller stores
     type: {
         type: String,
         enum: ['data', 'airtime', 'electricity', 'tv'],
@@ -24,9 +25,20 @@ const beneficiarySchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    // FIX: provider is optional (no required), extended enum, added all DISCOs and '' fallback
     provider: {
         type: String,
-        enum: ['mtn', 'glo', 'airtel', '9mobile', 'dstv', 'gotv', 'startimes', 'aedc', 'ikedc', 'ekedc', 'kedco']
+        enum: [
+            // Networks
+            'mtn', 'glo', 'airtel', '9mobile',
+            // TV
+            'dstv', 'gotv', 'startimes',
+            // Electricity DISCOs
+            'aedc', 'ikedc', 'ekedc', 'kedco', 'phed', 'ibedc', 'eedc', 'jed', 'kaedco', 'bedc',
+            // Allow empty string when provider is not applicable
+            ''
+        ],
+        default: ''
     },
     metadata: {
         type: mongoose.Schema.Types.Mixed,
@@ -56,20 +68,20 @@ beneficiarySchema.index({ user_id: 1, isFavorite: -1 });
 beneficiarySchema.index({ user_id: 1, usage_count: -1 });
 
 // Increment usage count
-beneficiarySchema.methods.incrementUsage = async function() {
+beneficiarySchema.methods.incrementUsage = async function () {
     this.usage_count += 1;
     this.last_used_at = new Date();
     return await this.save();
 };
 
-// Get formatted display
-beneficiarySchema.virtual('display').get(function() {
+// Virtual display
+beneficiarySchema.virtual('display').get(function () {
     return {
-        id: this._id,
-        type: this.type,
-        label: this.label,
-        value: this.value,
-        provider: this.provider,
+        id:         this._id,
+        type:       this.type,
+        label:      this.label,
+        value:      this.value,
+        provider:   this.provider,
         isFavorite: this.isFavorite
     };
 });
