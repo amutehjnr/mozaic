@@ -61,21 +61,48 @@ const isAuthenticated = async (req, res, next) => {
 
 /**
  * Check if user is guest (not authenticated)
+ * FIXED: Proper async error handling with session destroy callback
  */
 const isGuest = async (req, res, next) => {
-    if (req.session.userId) {
-        try {
-            const user = await User.findById(req.session.userId);
-            if (user && user.isActive) {
-                return res.redirect('/dashboard/user'); // logged-in, redirect
-            } else {
-                req.session.destroy(); // stale session
+    // If no userId, they're a guest - let them in
+    if (!req.session || !req.session.userId) {
+        return next();
+    }
+
+    try {
+        // Check if user exists in database
+        const user = await User.findById(req.session.userId);
+        
+        if (user && user.isActive) {
+            // Valid logged-in user - redirect to dashboard
+            return res.redirect('/dashboard/user');
+        }
+        
+        // User not found or inactive - destroy session properly
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Session destroy error in isGuest:', err);
             }
-        } catch (err) {
-            req.session.destroy();
+            // After destroy completes, let them access login page
+            next();
+        });
+        
+    } catch (err) {
+        console.error('isGuest error:', err);
+        
+        // On error, destroy session properly
+        if (req.session) {
+            req.session.destroy((destroyErr) => {
+                if (destroyErr) {
+                    console.error('Session destroy error in isGuest catch:', destroyErr);
+                }
+                // Still let them proceed to login
+                next();
+            });
+        } else {
+            next();
         }
     }
-    next(); // show login page
 };
 
 /**

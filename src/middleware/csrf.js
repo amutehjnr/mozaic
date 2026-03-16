@@ -5,18 +5,18 @@ const logger = require('../utils/logger');
 const tokens = new Tokens();
 
 /**
- * Setup CSRF protection
+ * Setup CSRF protection - This is a middleware factory
  */
-const setupCsrf = (req, res, next) => {
-    
+const setupCsrf = () => {
+    return (req, res, next) => {
         try {
             // Generate or retrieve CSRF secret from session
             if (!req.session) {
-              return next();
+                return next();
             }
 
             if (!req.session.csrfSecret) {
-               req.session.csrfSecret = tokens.secretSync();
+                req.session.csrfSecret = tokens.secretSync();
             }
             
             // Generate token for this request
@@ -24,7 +24,7 @@ const setupCsrf = (req, res, next) => {
             
             // Make token available to views and requests
             res.locals.csrfToken = token;
-            req.csrfToken = () => token; // Add this line
+            req.csrfToken = () => token;
             
             // Also set in cookie for AJAX requests
             res.cookie('XSRF-TOKEN', token, {
@@ -39,9 +39,10 @@ const setupCsrf = (req, res, next) => {
             console.error('CSRF setup error:', error);
             // Continue even if CSRF fails (for development)
             res.locals.csrfToken = 'dev-token';
-            req.csrfToken = () => 'dev-token'; // Add this line
+            req.csrfToken = () => 'dev-token';
             next();
         }
+    };
 };
 
 /**
