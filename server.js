@@ -168,30 +168,7 @@ app.use((req, res, next) => {
     next();
 });
 
-    // Add this AFTER your global middleware but BEFORE routes
-// Add this AFTER your global middleware but BEFORE routes
-app.use((req, res, next) => {
-    const originalRedirect = res.redirect;
-    res.redirect = function(url) {
-        console.log('🔴 Redirect attempted to:', url);
-        console.log('   Stack trace:', new Error().stack);
-        
-        try {
-            // Test if URL is valid
-            new URL(url, `${req.protocol}://${req.get('host')}`);
-            console.log('   ✅ URL is valid');
-        } catch (e) {
-            console.error('   ❌ INVALID URL DETECTED:', e.message);
-            console.error('   Full error:', e);
-            // Instead of continuing, redirect to a safe fallback
-            console.log('   ⚠️ Redirecting to safe fallback: /auth/login');
-            return originalRedirect.call(this, '/auth/login');
-        }
-        
-        originalRedirect.call(this, url);
-    };
-    next();
-});
+
 
 // Add this after session middleware
 app.use((req, res, next) => {
