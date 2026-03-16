@@ -4,370 +4,292 @@ const logger = require('../utils/logger');
 
 class VTPassService {
     constructor() {
-        this.apiKey = process.env.VTPASS_API_KEY;
+        this.apiKey    = process.env.VTPASS_API_KEY;
         this.secretKey = process.env.VTPASS_SECRET_KEY;
-        this.username = process.env.VTPASS_USERNAME;
-        this.password = process.env.VTPASS_PASSWORD;
-        this.sandbox = process.env.VTPASS_SANDBOX === 'true';
+        this.username  = process.env.VTPASS_USERNAME;
+        this.password  = process.env.VTPASS_PASSWORD;
+        this.sandbox   = process.env.VTPASS_SANDBOX === 'true';
 
         this.baseURL = this.sandbox
             ? 'https://sandbox.vtpass.com/api'
             : 'https://api.vtpass.com/api';
 
-        this.client = axios.create({
+        // VTPass uses different auth per endpoint type:
+        //   GET  (service-variations, merchant-verify) → api-key header
+        //   POST (pay, requery)                        → Basic Auth (username/password)
+        //                                                OR api-key + secret-key headers
+
+        const commonHeaders = {
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+        };
+
+        // GET client: api-key header only
+        this.getClient = axios.create({
+            baseURL: this.baseURL,
+            headers: { ...commonHeaders, 'api-key': this.apiKey || '' },
+            timeout: 30000,
+        });
+
+        // POST client: Basic Auth preferred; fall back to header-based auth
+        this.postClient = axios.create({
             baseURL: this.baseURL,
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'api-key': this.apiKey || '',
+                ...commonHeaders,
+                // Header-based fallback (used when no username/password)
+                'api-key':    this.apiKey    || '',
                 'secret-key': this.secretKey || '',
-                'public-key': this.apiKey || ''
             },
-            timeout: 30000
+            // Basic Auth (takes priority when both are present)
+            auth: (this.username && this.password)
+                ? { username: this.username, password: this.password }
+                : undefined,
+            timeout: 30000,
         });
 
-        // Request interceptor for logging
-        this.client.interceptors.request.use((config) => {
-            logger.debug(`VTPass Request: ${config.method.toUpperCase()} ${config.url}`);
-            return config;
+        // Attach logging interceptors to both clients
+        [this.getClient, this.postClient].forEach(client => {
+            client.interceptors.request.use(config => {
+                logger.debug(`VTPass → ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
+                return config;
+            });
+            client.interceptors.response.use(
+                res => {
+                    logger.debug(`VTPass ← ${res.status} ${res.config.url}`);
+                    return res;
+                },
+                err => {
+                    logger.error('VTPass API Error:', {
+                        status:   err.response?.status,
+                        message:  err.message,
+                        url:      err.config?.url,
+                        response: err.response?.data,
+                    });
+                    return Promise.reject(err);
+                }
+            );
         });
-
-        // Response interceptor for logging
-        this.client.interceptors.response.use(
-            (response) => {
-                logger.debug(`VTPass Response: ${response.status} ${response.config.url}`);
-                return response;
-            },
-            (error) => {
-                logger.error('VTPass API Error:', {
-                    message: error.message,
-                    response: error.response?.data,
-                    status: error.response?.status,
-                    url: error.config?.url
-                });
-                return Promise.reject(error);
-            }
-        );
     }
 
-    /**
-     * Check if VTPass is configured
-     */
+    // ─── Helpers ───────────────────────────────────────────────────────────────
+
     isConfigured() {
-        return !!(this.apiKey && this.secretKey);
+        return !!(this.apiKey || (this.username && this.password));
     }
 
-    /**
-     * Generate request ID
-     */
     generateRequestId() {
-        const timestamp = Date.now();
-        const random = crypto.randomBytes(4).toString('hex');
-        return `${timestamp}_${random}`;
+        // VTPass requires a unique request_id; use timestamp + random hex
+        const now  = new Date();
+        const pad  = n => String(n).padStart(2, '0');
+        const ts   =
+            now.getFullYear() +
+            pad(now.getMonth() + 1) +
+            pad(now.getDate()) +
+            pad(now.getHours()) +
+            pad(now.getMinutes()) +
+            pad(now.getSeconds());
+        return ts + crypto.randomBytes(4).toString('hex').toUpperCase();
     }
 
+    // ─── Low-level request wrappers ────────────────────────────────────────────
+
     /**
-     * Make API request with retry logic.
-     * Does NOT retry on 401/403 — those are auth failures, retrying wastes time.
+     * GET — uses api-key header client.
+     * Never retried on 401/403.
      */
-    async makeRequest(endpoint, data, method = 'POST', retries = 2) {
-        // Fail fast if credentials are not set
+    async _get(endpoint, params = {}) {
         if (!this.isConfigured()) {
             return {
                 ok: false,
-                error: 'VTPass API credentials are not configured. Please set VTPASS_API_KEY and VTPASS_SECRET_KEY.',
-                data: { response_description: 'Service not configured' },
-                status: 503
+                error: 'VTPass credentials not configured. Set VTPASS_API_KEY (and optionally VTPASS_SECRET_KEY).',
+                status: 503,
             };
         }
+        try {
+            const res = await this.getClient.get(endpoint, { params });
+            return { ok: true, data: res.data, status: res.status };
+        } catch (err) {
+            return this._handleError(err);
+        }
+    }
 
-        for (let i = 0; i <= retries; i++) {
+    /**
+     * POST — uses Basic Auth (or header-based) client.
+     * Retries up to 2× on transient failures; never retries 401/403.
+     */
+    async _post(endpoint, data, retries = 2) {
+        if (!this.isConfigured()) {
+            return {
+                ok: false,
+                error: 'VTPass credentials not configured. Set VTPASS_USERNAME + VTPASS_PASSWORD (or VTPASS_API_KEY + VTPASS_SECRET_KEY).',
+                status: 503,
+            };
+        }
+        for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-                const response = await this.client({
-                    method,
-                    url: endpoint,
-                    data: method === 'POST' ? data : undefined,
-                    params: method === 'GET' ? data : undefined
-                });
-
-                return {
-                    ok: true,
-                    data: response.data,
-                    status: response.status
-                };
-            } catch (error) {
-                const status = error.response?.status;
-                const isLastAttempt = i === retries;
-
-                // Never retry authentication errors — they won't fix themselves
+                const res = await this.postClient.post(endpoint, data);
+                return { ok: true, data: res.data, status: res.status };
+            } catch (err) {
+                const status = err.response?.status;
+                // Auth errors: fail immediately, retrying won't help
                 if (status === 401 || status === 403) {
-                    return {
-                        ok: false,
-                        error: status === 401
-                            ? 'VTPass authentication failed. Check your API credentials.'
-                            : 'VTPass access forbidden. Check your API key permissions.',
-                        data: error.response?.data,
-                        status
-                    };
+                    return this._handleError(err);
                 }
-
-                if (isLastAttempt) {
-                    return {
-                        ok: false,
-                        error: error.message,
-                        data: error.response?.data,
-                        status
-                    };
+                if (attempt === retries) {
+                    return this._handleError(err);
                 }
-
                 // Exponential backoff for transient errors
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
             }
         }
     }
 
-    /**
-     * Get service variations (plans)
-     */
-    async getVariations(serviceID) {
-        const endpoint = '/service-variations';
-        return await this.makeRequest(endpoint, { serviceID });
-    }
+    _handleError(err) {
+        const status = err.response?.status;
+        let error = err.message;
 
-    /**
-     * Verify smartcard/meter number
-     */
-    async verify(serviceID, billersCode, type = '') {
-        const endpoint = '/merchant-verify';
-        const data = { serviceID, billersCode, type };
-        return await this.makeRequest(endpoint, data);
-    }
-
-    /**
-     * Make payment (purchase)
-     */
-    async pay(data) {
-        const endpoint = '/pay';
-        const payload = {
-            request_id: this.generateRequestId(),
-            ...data
-        };
-        return await this.makeRequest(endpoint, payload);
-    }
-
-    /**
-     * Query transaction status
-     */
-    async queryStatus(request_id, serviceID) {
-        const endpoint = '/requery';
-        const data = { request_id, serviceID };
-        return await this.makeRequest(endpoint, data);
-    }
-
-    /**
-     * Get available services
-     */
-    async getServices() {
-        const endpoint = '/services';
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Get service categories
-     */
-    async getCategories() {
-        const endpoint = '/service-categories';
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Get transaction history
-     */
-    async getTransactionHistory(serviceID = null, startDate = null, endDate = null) {
-        const endpoint = '/transactions';
-        const params = {};
-        if (serviceID) params.serviceID = serviceID;
-        if (startDate) params.startDate = startDate;
-        if (endDate) params.endDate = endDate;
-        return await this.makeRequest(endpoint, params, 'GET');
-    }
-
-    // ================ Specific Service Methods ================
-
-    /**
-     * Buy airtime
-     */
-    async buyAirtime(network, phone, amount, request_id = null) {
-        const serviceMap = {
-            'mtn': 'mtn',
-            'glo': 'glo',
-            'airtel': 'airtel',
-            '9mobile': 'etisalat'
-        };
-
-        const serviceID = serviceMap[network.toLowerCase()] || network;
-
-        const data = {
-            serviceID,
-            amount: amount.toString(),
-            phone
-        };
-
-        if (request_id) data.request_id = request_id;
-
-        return await this.pay(data);
-    }
-
-    /**
-     * Buy data
-     */
-    async buyData(network, phone, plan, request_id = null) {
-        const serviceMap = {
-            'mtn': 'mtn-data',
-            'glo': 'glo-data',
-            'airtel': 'airtel-data',
-            '9mobile': 'etisalat-data'
-        };
-
-        const serviceID = serviceMap[network.toLowerCase()] || `${network}-data`;
-
-        const data = {
-            serviceID,
-            billersCode: phone,
-            variation_code: plan,
-            phone
-        };
-
-        if (request_id) data.request_id = request_id;
-
-        return await this.pay(data);
-    }
-
-    /**
-     * Get data plans
-     */
-    async getDataPlans(network) {
-        const serviceMap = {
-            'mtn': 'mtn-data',
-            'glo': 'glo-data',
-            'airtel': 'airtel-data',
-            '9mobile': 'etisalat-data'
-        };
-
-        const serviceID = serviceMap[network.toLowerCase()] || `${network}-data`;
-
-        const response = await this.getVariations(serviceID);
-
-        if (response.ok && response.data && response.data.content) {
-            const variations = response.data.content.variations || [];
-            return variations.map(v => ({
-                label: v.name,
-                code: v.variation_code,
-                amount: parseFloat(v.variation_amount) || 0,
-                serviceID
-            }));
+        if (status === 401) {
+            error = 'VTPass authentication failed. Check VTPASS_USERNAME / VTPASS_PASSWORD (or VTPASS_API_KEY).';
+        } else if (status === 403) {
+            error = 'VTPass access forbidden. Check your API key permissions.';
         }
 
+        return {
+            ok: false,
+            error,
+            data: err.response?.data,
+            status,
+        };
+    }
+
+    // ─── Public service methods ────────────────────────────────────────────────
+
+    async getVariations(serviceID) {
+        return this._get('/service-variations', { serviceID });
+    }
+
+    async verify(serviceID, billersCode, type = '') {
+        return this._get('/merchant-verify', { serviceID, billersCode, type });
+    }
+
+    async pay(data) {
+        const payload = { request_id: this.generateRequestId(), ...data };
+        return this._post('/pay', payload);
+    }
+
+    async queryStatus(request_id, serviceID) {
+        return this._post('/requery', { request_id, serviceID });
+    }
+
+    async getServices() {
+        return this._get('/services');
+    }
+
+    async getCategories() {
+        return this._get('/service-categories');
+    }
+
+    // ─── Bill helpers ──────────────────────────────────────────────────────────
+
+    async buyAirtime(network, phone, amount, request_id = null) {
+        const serviceMap = { mtn: 'mtn', glo: 'glo', airtel: 'airtel', '9mobile': 'etisalat' };
+        const data = {
+            serviceID: serviceMap[network.toLowerCase()] || network,
+            amount:    String(amount),
+            phone,
+        };
+        if (request_id) data.request_id = request_id;
+        return this.pay(data);
+    }
+
+    async buyData(network, phone, plan, request_id = null) {
+        const serviceMap = { mtn: 'mtn-data', glo: 'glo-data', airtel: 'airtel-data', '9mobile': 'etisalat-data' };
+        const data = {
+            serviceID:      serviceMap[network.toLowerCase()] || `${network}-data`,
+            billersCode:    phone,
+            variation_code: plan,
+            phone,
+        };
+        if (request_id) data.request_id = request_id;
+        return this.pay(data);
+    }
+
+    async getDataPlans(network) {
+        const serviceMap = { mtn: 'mtn-data', glo: 'glo-data', airtel: 'airtel-data', '9mobile': 'etisalat-data' };
+        const serviceID  = serviceMap[network.toLowerCase()] || `${network}-data`;
+        const response   = await this.getVariations(serviceID);
+
+        if (response.ok && response.data?.content) {
+            return (response.data.content.variations || []).map(v => ({
+                label:     v.name,
+                code:      v.variation_code,
+                amount:    parseFloat(v.variation_amount) || 0,
+                serviceID,
+            }));
+        }
         return [];
     }
 
-    /**
-     * Buy electricity
-     */
     async buyElectricity(disco, meterNo, meterType, amount, phone = '', request_id = null) {
         const serviceMap = {
-            'aedc': 'aedc',
-            'ikedc': 'ikeja-electric',
-            'ekedc': 'ekedc',
-            'kedco': 'kedco'
+            aedc: 'aedc', ikedc: 'ikeja-electric', ekedc: 'ekedc',
+            kedco: 'kedco', phed: 'phed', ibedc: 'ibedc', eedc: 'eedc', jed: 'jed',
         };
-
-        const serviceID = serviceMap[disco.toLowerCase()] || disco;
-
         const data = {
-            serviceID,
-            billersCode: meterNo,
+            serviceID:      serviceMap[disco.toLowerCase()] || disco,
+            billersCode:    meterNo,
             variation_code: meterType === 'prepaid' ? 'prepaid' : 'postpaid',
-            amount: amount.toString(),
-            phone: phone || meterNo
+            amount:         String(amount),
+            phone:          phone || meterNo,
         };
-
         if (request_id) data.request_id = request_id;
-
-        return await this.pay(data);
+        return this.pay(data);
     }
 
-    /**
-     * Buy TV subscription
-     */
     async buyTV(provider, smartcard, packageCode, phone = '', request_id = null) {
-        const serviceMap = {
-            'dstv': 'dstv',
-            'gotv': 'gotv',
-            'startimes': 'startimes'
-        };
-
-        const serviceID = serviceMap[provider.toLowerCase()] || provider;
-
+        const serviceMap = { dstv: 'dstv', gotv: 'gotv', startimes: 'startimes' };
         const data = {
-            serviceID,
-            billersCode: smartcard,
+            serviceID:      serviceMap[provider.toLowerCase()] || provider,
+            billersCode:    smartcard,
             variation_code: packageCode,
-            phone: phone || smartcard
+            phone:          phone || smartcard,
         };
-
         if (request_id) data.request_id = request_id;
-
-        return await this.pay(data);
+        return this.pay(data);
     }
 
-    /**
-     * Get TV packages
-     */
     async getTVPackages(provider, smartcard = null) {
-        const serviceMap = {
-            'dstv': 'dstv',
-            'gotv': 'gotv',
-            'startimes': 'startimes'
-        };
+        const serviceMap = { dstv: 'dstv', gotv: 'gotv', startimes: 'startimes' };
+        const serviceID  = serviceMap[provider.toLowerCase()] || provider;
 
-        const serviceID = serviceMap[provider.toLowerCase()] || provider;
-
-        // First verify smartcard if provided
         let customerName = null;
         if (smartcard) {
-            const verifyResponse = await this.verify(serviceID, smartcard);
-            if (verifyResponse.ok && verifyResponse.data) {
-                customerName = verifyResponse.data.customer_name ||
-                              verifyResponse.data.Customer_Name ||
-                              verifyResponse.data.content?.Customer_Name;
+            const v = await this.verify(serviceID, smartcard);
+            if (v.ok && v.data) {
+                customerName =
+                    v.data.customer_name         ||
+                    v.data.Customer_Name         ||
+                    v.data.content?.Customer_Name ||
+                    null;
             }
         }
 
-        // Get packages
         const response = await this.getVariations(serviceID);
-
-        if (response.ok && response.data && response.data.content) {
-            const variations = response.data.content.variations || [];
-            const packages = variations.map(v => ({
-                label: v.name,
-                code: v.variation_code,
+        if (response.ok && response.data?.content) {
+            const packages = (response.data.content.variations || []).map(v => ({
+                label:  v.name,
+                code:   v.variation_code,
                 amount: parseFloat(v.variation_amount) || 0,
-                serviceID
+                serviceID,
             }));
-
             return { ok: true, packages, customerName };
         }
-
         return { ok: false, packages: [], customerName: null };
     }
 
-    /**
-     * Check if service is available
-     */
     async checkServiceStatus(serviceID) {
-        const response = await this.getVariations(serviceID);
-        return response.ok && response.data && response.data.content;
+        const r = await this.getVariations(serviceID);
+        return r.ok && !!r.data?.content;
     }
 }
 
