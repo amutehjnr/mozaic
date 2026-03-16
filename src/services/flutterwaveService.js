@@ -1,32 +1,30 @@
-const axios = require('axios');
+const axios  = require('axios');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 class FlutterwaveService {
     constructor() {
-        this.publicKey = process.env.FLW_PUBLIC_KEY;
-        this.secretKey = process.env.FLW_SECRET_KEY;
+        this.publicKey     = process.env.FLW_PUBLIC_KEY;
+        this.secretKey     = process.env.FLW_SECRET_KEY;
         this.encryptionKey = process.env.FLW_ENCRYPTION_KEY;
-        this.baseURL = process.env.FLW_BASE_URL || 'https://api.flutterwave.com/v3';
+        this.baseURL       = process.env.FLW_BASE_URL || 'https://api.flutterwave.com/v3';
         this.webhookSecret = process.env.FLW_WEBHOOK_SECRET;
 
         this.client = axios.create({
             baseURL: this.baseURL,
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
+                'Content-Type':  'application/json',
+                'Accept':        'application/json',
                 'Authorization': `Bearer ${this.secretKey}`
             },
             timeout: 30000
         });
 
-        // Request interceptor
         this.client.interceptors.request.use((config) => {
             logger.debug(`Flutterwave Request: ${config.method.toUpperCase()} ${config.url}`);
             return config;
         });
 
-        // Response interceptor
         this.client.interceptors.response.use(
             (response) => {
                 logger.debug(`Flutterwave Response: ${response.status} ${response.config.url}`);
@@ -34,327 +32,168 @@ class FlutterwaveService {
             },
             (error) => {
                 logger.error('Flutterwave API Error:', {
-                    message: error.message,
+                    message:  error.message,
                     response: error.response?.data,
-                    status: error.response?.status,
-                    url: error.config?.url
+                    status:   error.response?.status,
+                    url:      error.config?.url
                 });
                 return Promise.reject(error);
             }
         );
     }
 
-    /**
-     * Generate transaction reference
-     */
     generateTxRef(prefix = 'FLW') {
         const timestamp = Date.now();
-        const random = crypto.randomBytes(8).toString('hex');
+        const random    = crypto.randomBytes(8).toString('hex');
         return `${prefix}_${timestamp}_${random}`;
     }
 
-    /**
-     * Make API request
-     */
+    // ─── Low-level request helper ─────────────────────────────────────────────
     async makeRequest(endpoint, data, method = 'POST') {
         try {
-            const response = await this.client({
-                method,
-                url: endpoint,
-                data: method === 'POST' ? data : undefined,
-                params: method === 'GET' ? data : undefined
-            });
+            const config = { method, url: endpoint };
+            if (method === 'POST' || method === 'PUT') config.data   = data;
+            else                                        config.params = data;
 
-            return {
-                ok: true,
-                data: response.data,
-                status: response.status
-            };
+            const response = await this.client(config);
+            return { ok: true, data: response.data, status: response.status };
         } catch (error) {
             return {
-                ok: false,
-                error: error.message,
-                data: error.response?.data,
+                ok:     false,
+                error:  error.message,
+                data:   error.response?.data,
                 status: error.response?.status
             };
         }
     }
 
-    /**
-     * Initialize a payment
-     */
+    // ─── Payment initialisation ───────────────────────────────────────────────
     async initializePayment(data) {
-        const endpoint = '/payments';
-        
         const payload = {
-            tx_ref: data.tx_ref || this.generateTxRef('FLW'),
-            amount: data.amount,
-            currency: data.currency || 'NGN',
-            redirect_url: data.redirect_url,
+            tx_ref:          data.tx_ref || this.generateTxRef(),
+            amount:          data.amount,
+            currency:        data.currency  || 'NGN',
+            redirect_url:    data.redirect_url,
             payment_options: data.payment_options || 'card,account,ussd,banktransfer',
             customer: {
-                email: data.customer.email,
+                email:       data.customer.email,
                 phonenumber: data.customer.phonenumber,
-                name: data.customer.name
+                name:        data.customer.name
             },
             customizations: {
-                title: data.customizations?.title || 'MozAic Wallet Funding',
+                title:       data.customizations?.title       || 'MozAic Wallet Funding',
                 description: data.customizations?.description || 'Fund your wallet',
-                logo: data.customizations?.logo
+                logo:        data.customizations?.logo
             },
             meta: data.meta || {}
         };
 
         if (data.payment_plan) payload.payment_plan = data.payment_plan;
-        if (data.subaccounts) payload.subaccounts = data.subaccounts;
+        if (data.subaccounts)  payload.subaccounts  = data.subaccounts;
 
-        return await this.makeRequest(endpoint, payload);
+        return this.makeRequest('/payments', payload);
     }
 
+    // ─── Transaction verification ─────────────────────────────────────────────
+
     /**
-     * Verify a transaction
+     * Verify a transaction by its Flutterwave numeric ID.
+     * Endpoint: GET /transactions/:id/verify
      */
     async verifyTransaction(id) {
-        const endpoint = `/transactions/${id}/verify`;
-        return await this.makeRequest(endpoint, {}, 'GET');
+        return this.makeRequest(`/transactions/${id}/verify`, {}, 'GET');
     }
 
     /**
-     * Get transaction by reference
+     * Look up a transaction by tx_ref.
+     *
+     * ⚠️  The endpoint GET /transactions/by_ref/:ref does NOT exist on the
+     *     Flutterwave v3 API — it returns an HTML error page.
+     *     The correct approach is GET /transactions?tx_ref=REF (list + filter).
+     *
+     * Returns the same {ok, data, status} envelope.
+     * `data.data` will be the single matched transaction object or null.
      */
-    async getTransactionByRef(tx_ref) {
-        const endpoint = `/transactions/by_ref/${tx_ref}`;
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
+    async getTransactionByRef(txRef) {
+        try {
+            const response = await this.client.get('/transactions', {
+                params: { tx_ref: txRef }
+            });
 
-    /**
-     * Create a payment link
-     */
-    async createPaymentLink(data) {
-        const endpoint = '/payment-links';
-        
-        const payload = {
-            tx_ref: data.tx_ref || this.generateTxRef('LINK'),
-            amount: data.amount,
-            currency: data.currency || 'NGN',
-            title: data.title,
-            description: data.description,
-            logo: data.logo,
-            duration: data.duration || '24hrs',
-            payment_options: data.payment_options || 'card,account,ussd',
-            redirect_url: data.redirect_url
-        };
+            const items = response.data?.data;
 
-        return await this.makeRequest(endpoint, payload);
-    }
+            if (!Array.isArray(items) || items.length === 0) {
+                // No matching transaction found
+                return {
+                    ok:     true,
+                    data:   { status: 'success', message: 'No transaction found', data: null },
+                    status: 200
+                };
+            }
 
-    /**
-     * Initiate a bank transfer
-     */
-    async initiateTransfer(data) {
-        const endpoint = '/transfers';
-        
-        const payload = {
-            account_bank: data.account_bank,
-            account_number: data.account_number,
-            amount: data.amount,
-            narration: data.narration || 'Wallet withdrawal',
-            currency: data.currency || 'NGN',
-            reference: data.reference || this.generateTxRef('TRF'),
-            beneficiary_name: data.beneficiary_name,
-            destination_branch_code: data.destination_branch_code
-        };
+            // Find the exact match (belt-and-suspenders — the filter is exact)
+            const match = items.find(t => t.tx_ref === txRef) || items[0];
 
-        if (data.meta) payload.meta = data.meta;
+            return {
+                ok:     true,
+                data:   { status: 'success', message: 'Transaction fetched', data: match },
+                status: 200
+            };
 
-        return await this.makeRequest(endpoint, payload);
-    }
-
-    /**
-     * Get transfer status
-     */
-    async getTransferStatus(id) {
-        const endpoint = `/transfers/${id}`;
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Get all transfers
-     */
-    async getTransfers(status = null, from = null, to = null) {
-        const endpoint = '/transfers';
-        const params = {};
-        if (status) params.status = status;
-        if (from) params.from = from;
-        if (to) params.to = to;
-        
-        return await this.makeRequest(endpoint, params, 'GET');
-    }
-
-    /**
-     * Get banks list
-     */
-    async getBanks(country = 'NG') {
-        const endpoint = `/banks/${country}`;
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Resolve account number
-     */
-    async resolveAccount(account_number, account_bank) {
-        const endpoint = '/accounts/resolve';
-        const data = {
-            account_number,
-            account_bank
-        };
-        return await this.makeRequest(endpoint, data);
-    }
-
-    /**
-     * Get balances
-     */
-    async getBalances(currency = null) {
-        const endpoint = currency ? `/balances/${currency}` : '/balances';
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Initiate a bill payment
-     */
-    async payBill(data) {
-        const endpoint = '/bills';
-        
-        const payload = {
-            country: data.country || 'NG',
-            customer: data.customer,
-            amount: data.amount,
-            recurrence: data.recurrence || 'ONCE',
-            type: data.type,
-            reference: data.reference || this.generateTxRef('BILL')
-        };
-
-        return await this.makeRequest(endpoint, payload);
-    }
-
-    /**
-     * Get bill categories
-     */
-    async getBillCategories() {
-        const endpoint = '/bill-categories';
-        return await this.makeRequest(endpoint, {}, 'GET');
-    }
-
-    /**
-     * Validate bill service
-     */
-    async validateBillService(item_code, customer) {
-        const endpoint = '/bill-items';
-        const data = {
-            item_code,
-            customer
-        };
-        return await this.makeRequest(endpoint, data);
-    }
-
-    /**
-     * Create virtual account
-     */
-    async createVirtualAccount(data) {
-        const endpoint = '/virtual-account-numbers';
-        
-        const payload = {
-            email: data.email,
-            is_permanent: data.is_permanent || true,
-            bvn: data.bvn,
-            tx_ref: data.tx_ref || this.generateTxRef('VA'),
-            phonenumber: data.phonenumber,
-            firstname: data.firstname,
-            lastname: data.lastname,
-            narration: data.narration || 'MozAic Wallet'
-        };
-
-        return await this.makeRequest(endpoint, payload);
-    }
-
-    /**
-     * Verify webhook signature
-     */
-    verifyWebhookSignature(signature, payload) {
-        if (!this.webhookSecret) return false;
-        
-        const hash = crypto
-            .createHmac('sha256', this.webhookSecret)
-            .update(JSON.stringify(payload))
-            .digest('hex');
-        
-        return signature === hash;
-    }
-
-    /**
-     * Handle webhook event
-     */
-    async handleWebhook(payload) {
-        const event = payload.event;
-        const data = payload.data;
-
-        logger.info(`Flutterwave Webhook: ${event}`, { tx_ref: data.tx_ref });
-
-        switch (event) {
-            case 'charge.completed':
-                return await this.handleChargeCompleted(data);
-            case 'transfer.completed':
-                return await this.handleTransferCompleted(data);
-            case 'subscription.cancelled':
-                return await this.handleSubscriptionCancelled(data);
-            default:
-                logger.info(`Unhandled webhook event: ${event}`);
-                return { received: true, event };
+        } catch (error) {
+            logger.error('getTransactionByRef error:', error.message);
+            return {
+                ok:     false,
+                error:  error.message,
+                data:   error.response?.data,
+                status: error.response?.status
+            };
         }
     }
 
-    /**
-     * Handle charge completed webhook
-     */
-    async handleChargeCompleted(data) {
-        const { tx_ref, id, amount, currency, customer, status } = data;
-        
-        // This will be called from the webhook route
-        // We'll implement the business logic in the controller
-        return {
-            event: 'charge.completed',
-            tx_ref,
-            id,
-            status
+    // ─── Transfer methods ─────────────────────────────────────────────────────
+    async initiateTransfer(data) {
+        const payload = {
+            account_bank:            data.account_bank,
+            account_number:          data.account_number,
+            amount:                  data.amount,
+            narration:               data.narration || 'Wallet withdrawal',
+            currency:                data.currency  || 'NGN',
+            reference:               data.reference || this.generateTxRef('TRF'),
+            beneficiary_name:        data.beneficiary_name,
+            destination_branch_code: data.destination_branch_code
         };
+        if (data.meta) payload.meta = data.meta;
+        return this.makeRequest('/transfers', payload);
     }
 
-    /**
-     * Handle transfer completed webhook
-     */
-    async handleTransferCompleted(data) {
-        const { id, reference, amount, currency, status } = data;
-        
-        return {
-            event: 'transfer.completed',
-            id,
-            reference,
-            status
-        };
+    async getTransferStatus(id) {
+        return this.makeRequest(`/transfers/${id}`, {}, 'GET');
     }
 
-    /**
-     * Handle subscription cancelled webhook
-     */
-    async handleSubscriptionCancelled(data) {
-        const { id, reference, status } = data;
-        
-        return {
-            event: 'subscription.cancelled',
-            id,
-            reference,
-            status
-        };
+    async getBanks(country = 'NG') {
+        return this.makeRequest(`/banks/${country}`, {}, 'GET');
+    }
+
+    async resolveAccount(account_number, account_bank) {
+        return this.makeRequest('/accounts/resolve', { account_number, account_bank });
+    }
+
+    async getBalances(currency = null) {
+        const endpoint = currency ? `/balances/${currency}` : '/balances';
+        return this.makeRequest(endpoint, {}, 'GET');
+    }
+
+    // ─── Webhook signature verification ──────────────────────────────────────
+    verifyWebhookSignature(signature, payload) {
+        if (!this.webhookSecret) {
+            logger.warn('FLW_WEBHOOK_SECRET not set — cannot verify webhook signature');
+            return false;
+        }
+
+        // Flutterwave sends the secret directly in the verif-hash header
+        // (not an HMAC — just a plain string comparison).
+        return signature === this.webhookSecret;
     }
 }
 
