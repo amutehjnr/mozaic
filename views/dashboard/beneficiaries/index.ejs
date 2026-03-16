@@ -1,71 +1,72 @@
 <%
-const user = typeof userData !== 'undefined' ? userData : (typeof user !== 'undefined' ? user : { id: 0, name: '', email: '' });
-// FIX: view was checking 'beneficiariesData' but controller was sending 'beneficiaries'
-// Controller now sends both; we handle either here
+const user = typeof userData !== 'undefined' ? userData
+           : typeof user    !== 'undefined' ? user
+           : { id: 0, name: '', email: '' };
+
 const beneficiaries = typeof beneficiariesData !== 'undefined' ? beneficiariesData
-                    : typeof beneficiaries !== 'undefined' ? beneficiaries : [];
+                    : typeof beneficiaries      !== 'undefined' ? beneficiaries
+                    : [];
+
+const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-NG', { year:'numeric', month:'short', day:'numeric' });
 };
 
-const escapeHtml = (text) => {
+const esc = (text) => {
     if (!text) return '';
     return String(text)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 };
 
-// FIX: Icons mapped to lowercase type values (matching model enum)
-const getTypeIcon = (type) => ({
+const typeIcon = (t) => ({
     data:        'bi-wifi',
     airtime:     'bi-phone-fill',
     electricity: 'bi-plug',
     tv:          'bi-tv'
-}[type?.toLowerCase()] || 'bi-person');
+}[(t||'').toLowerCase()] || 'bi-person');
 
-const getTypeLabel = (type) => ({
+const typeLabel = (t) => ({
     data:        'Data',
     airtime:     'Airtime',
     electricity: 'Electricity',
     tv:          'TV'
-}[type?.toLowerCase()] || type || '—');
+}[(t||'').toLowerCase()] || t || '—');
 
-// Group by type (lowercase)
-const grouped = {};
-['airtime', 'data', 'electricity', 'tv'].forEach(t => {
-    const items = beneficiaries.filter(b => (b.type || '').toLowerCase() === t);
-    if (items.length) grouped[t] = items;
-});
+const TYPES = ['airtime','data','electricity','tv'];
 %>
 <%- include('../../partials/header') %>
 
 <style>
-  :root { --jn-primary:#EF5134; --jn-primary-600:#e3472b; }
-  body  { background:#f8fafc; font-family:'Poppins',sans-serif; }
-  .navbar { background:rgba(11,18,32,.95); backdrop-filter:blur(10px); padding:.75rem 0; }
-  .navbar-brand { font-weight:800; font-size:1.5rem; color:white!important; }
-  .navbar-brand span { color:var(--jn-primary); }
-  .nav-link { color:rgba(255,255,255,.8)!important; font-weight:500; }
-  .nav-link:hover, .nav-link.active { color:white!important; }
-  #header { position:relative; padding:3rem 0; margin-bottom:2rem;
-    background:linear-gradient(135deg,#0b1220,#1a2639); }
-  #header .container { position:relative; z-index:1; color:white; }
-  .card { border:none; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:all .2s; }
-  .card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
-  .btn-theme { background:var(--jn-primary); border:none; border-radius:10px; font-weight:600; padding:.6rem 1.5rem; color:white; transition:all .2s; }
-  .btn-theme:hover { background:var(--jn-primary-600); transform:translateY(-2px); color:white; }
-  .form-control,.form-select { border-radius:10px; border:1px solid #e2e8f0; }
-  .form-control:focus,.form-select:focus { border-color:var(--jn-primary); box-shadow:0 0 0 3px rgba(239,81,52,.15); }
-  .type-badge { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem 1rem; background:#f1f5f9; border-radius:100px; font-size:.85rem; font-weight:500; }
-  .beneficiary-card { border-left:3px solid var(--jn-primary); }
-  .empty-state { padding:4rem 1rem; text-align:center; }
-  .empty-state i { font-size:4rem; color:#cbd5e1; margin-bottom:1rem; }
-  .spinner-border-sm { width:1rem; height:1rem; border-width:2px; }
-  .toast-container { z-index:1060; }
+  :root{--jn-primary:#EF5134;--jn-primary-600:#e3472b}
+  body{background:#f8fafc;font-family:'Poppins',sans-serif}
+  .navbar{background:rgba(11,18,32,.95);backdrop-filter:blur(10px);padding:.75rem 0}
+  .navbar-brand{font-weight:800;font-size:1.5rem;color:white!important}
+  .navbar-brand span{color:var(--jn-primary)}
+  .nav-link{color:rgba(255,255,255,.8)!important;font-weight:500}
+  .nav-link:hover,.nav-link.active{color:white!important}
+  #header{position:relative;padding:3rem 0;margin-bottom:2rem;
+    background:linear-gradient(135deg,#0b1220,#1a2639)}
+  #header .container{position:relative;z-index:1;color:white}
+  .card{border:none;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:all .2s}
+  .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  .btn-theme{background:var(--jn-primary);border:none;border-radius:10px;font-weight:600;
+    padding:.6rem 1.5rem;color:white;transition:all .2s}
+  .btn-theme:hover{background:var(--jn-primary-600);transform:translateY(-2px);color:white}
+  .form-control,.form-select{border-radius:10px;border:1px solid #e2e8f0}
+  .form-control:focus,.form-select:focus{border-color:var(--jn-primary);
+    box-shadow:0 0 0 3px rgba(239,81,52,.15)}
+  .type-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem 1rem;
+    background:#f1f5f9;border-radius:100px;font-size:.85rem;font-weight:500}
+  .beneficiary-card{border-left:3px solid var(--jn-primary)}
+  .empty-state{padding:4rem 1rem;text-align:center}
+  .empty-state i{font-size:4rem;color:#cbd5e1;margin-bottom:1rem;display:block}
+  .spinner-border-sm{width:1rem;height:1rem;border-width:2px}
+  .toast-container{z-index:1060}
 </style>
 
 <nav class="navbar navbar-expand-lg sticky-top">
@@ -83,10 +84,10 @@ const grouped = {};
       </ul>
       <div class="d-flex gap-2">
         <span class="badge bg-white text-dark d-none d-md-block px-3 py-2">
-          <i class="bi bi-person-circle me-1"></i><%= escapeHtml(user.name || user.email || '') %>
+          <i class="bi bi-person-circle me-1"></i><%= esc(user.name || user.email || '') %>
         </span>
         <form method="POST" action="/auth/logout" class="d-inline">
-          <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+          <input type="hidden" name="_csrf" value="<%= _csrf %>">
           <button type="submit" class="btn btn-outline-light btn-sm">
             <i class="bi bi-box-arrow-right me-1"></i> Logout
           </button>
@@ -116,17 +117,16 @@ const grouped = {};
 <main class="py-4">
   <div class="container">
 
-    <!-- Add Beneficiary Form -->
+    <!-- Add Form -->
     <div class="card p-4 mb-4">
       <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle me-2 text-primary"></i>Add New Beneficiary</h5>
-      <%-- FIX: form posts to /api/beneficiaries (absolute path) not dashboard-relative --%>
       <form id="addForm" class="row g-3 needs-validation" novalidate>
-        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+        <input type="hidden" name="_csrf" value="<%= _csrf %>">
 
         <div class="col-md-3">
           <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
-          <%-- FIX: option values are lowercase to match model enum ['data','airtime','electricity','tv'] --%>
-          <select class="form-select" name="type" id="addType" required>
+          <%# option values are lowercase to match Beneficiary model enum %>
+          <select class="form-select" name="type" required>
             <option value="">Select type...</option>
             <option value="airtime">📱 Airtime</option>
             <option value="data">🌐 Data</option>
@@ -138,13 +138,13 @@ const grouped = {};
 
         <div class="col-md-3">
           <label class="form-label fw-semibold">Label / Nickname <span class="text-danger">*</span></label>
-          <input class="form-control" name="label" id="addLabel" placeholder="e.g. Mum's MTN" required>
+          <input class="form-control" name="label" placeholder="e.g. Mum's MTN" required>
           <div class="invalid-feedback">Please enter a label.</div>
         </div>
 
         <div class="col-md-3">
           <label class="form-label fw-semibold">Value <span class="text-danger">*</span></label>
-          <input class="form-control" name="value" id="addValue" placeholder="Phone / Meter / IUC number" required>
+          <input class="form-control" name="value" placeholder="Phone / Meter / IUC number" required>
           <div class="invalid-feedback">Please enter a value.</div>
         </div>
 
@@ -177,48 +177,53 @@ const grouped = {};
       </div>
     </div>
 
-    <!-- Beneficiaries Grid -->
+    <!-- Beneficiary Cards -->
     <div id="beneficiariesContainer">
-      <% if (beneficiaries.length === 0) { %>
+
+      <% if (!beneficiaries || beneficiaries.length === 0) { %>
         <div class="empty-state">
-          <i class="bi bi-people d-block"></i>
+          <i class="bi bi-people"></i>
           <h5 class="mt-2">No beneficiaries yet</h5>
           <p class="text-muted">Add your first beneficiary using the form above.</p>
         </div>
+
       <% } else { %>
-        <% ['airtime', 'data', 'electricity', 'tv'].forEach(type => {
-             const items = beneficiaries.filter(b => (b.type || '').toLowerCase() === type);
+
+        <% TYPES.forEach(function(type) {
+             var items = beneficiaries.filter(function(b){ return (b.type||'').toLowerCase() === type; });
              if (!items.length) return;
         %>
           <div class="mb-4 type-section" data-type="<%= type %>">
             <h6 class="fw-bold mb-3">
-              <i class="<%= getTypeIcon(type) %> me-2 text-primary"></i>
-              <%= getTypeLabel(type) %>
+              <i class="<%= typeIcon(type) %> me-2 text-primary"></i>
+              <%= typeLabel(type) %>
               <span class="badge bg-light text-dark ms-2"><%= items.length %></span>
             </h6>
             <div class="row g-3">
-              <% items.forEach(b => { %>
+              <% items.forEach(function(b) { %>
                 <div class="col-md-6 col-lg-4 ben-item"
                      data-id="<%= b.id %>"
-                     data-type="<%= (b.type || '').toLowerCase() %>"
-                     data-label="<%= escapeHtml((b.label || '').toLowerCase()) %>"
-                     data-value="<%= escapeHtml((b.value || '').toLowerCase()) %>">
+                     data-type="<%= (b.type||'').toLowerCase() %>"
+                     data-label="<%= esc((b.label||'').toLowerCase()) %>"
+                     data-value="<%= esc((b.value||'').toLowerCase()) %>">
                   <div class="card p-3 h-100 beneficiary-card">
                     <div class="d-flex justify-content-between align-items-start">
                       <div class="flex-grow-1 me-2">
                         <div class="d-flex align-items-center gap-2 mb-1">
                           <span class="type-badge">
-                            <i class="<%= getTypeIcon(b.type) %>"></i>
-                            <%= getTypeLabel(b.type) %>
+                            <i class="<%= typeIcon(b.type) %>"></i>
+                            <%= typeLabel(b.type) %>
                           </span>
                           <% if (b.isFavorite) { %>
                             <i class="bi bi-star-fill text-warning small"></i>
                           <% } %>
                         </div>
-                        <h6 class="fw-bold mb-1"><%= escapeHtml(b.label) %></h6>
-                        <p class="small text-muted mb-1"><%= escapeHtml(b.value) %></p>
+                        <h6 class="fw-bold mb-1"><%= esc(b.label) %></h6>
+                        <p class="small text-muted mb-1"><%= esc(b.value) %></p>
                         <% if (b.last_used) { %>
-                          <small class="text-muted"><i class="bi bi-clock me-1"></i><%= formatDate(b.last_used) %></small>
+                          <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i><%= formatDate(b.last_used) %>
+                          </small>
                         <% } %>
                       </div>
                       <div class="d-flex flex-column gap-1">
@@ -229,7 +234,7 @@ const grouped = {};
                         </button>
                         <button class="btn btn-sm btn-outline-danger del-btn"
                                 data-id="<%= b.id %>"
-                                data-label="<%= escapeHtml(b.label) %>"
+                                data-label="<%= esc(b.label) %>"
                                 title="Delete">
                           <i class="bi bi-trash"></i>
                         </button>
@@ -241,18 +246,21 @@ const grouped = {};
             </div>
           </div>
         <% }); %>
-      <% } %>
-    </div>
 
+      <% } %>
+
+    </div><!-- #beneficiariesContainer -->
   </div>
 </main>
 
-<!-- Delete Confirm Modal -->
+<!-- Delete Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete Beneficiary</h5>
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete Beneficiary
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -274,39 +282,41 @@ const grouped = {};
 (function () {
     'use strict';
 
-    const CSRF = '<%= typeof csrfToken !== "undefined" ? csrfToken : "" %>';
+    const CSRF = '<%= _csrf %>';
 
-    // ── Toast helper ──────────────────────────────────────────────────────
-    function toast(msg, type = 'success') {
-        const container = document.querySelector('.toast-container');
-        const id  = 'toast-' + Date.now();
-        const cls = { success: 'text-bg-success', error: 'text-bg-danger', warning: 'text-bg-warning', info: 'text-bg-info' }[type] || 'text-bg-success';
-        const ico = { success: 'bi-check-circle-fill', error: 'bi-exclamation-triangle-fill', warning: 'bi-exclamation-circle-fill', info: 'bi-info-circle-fill' }[type] || 'bi-bell-fill';
-        container.insertAdjacentHTML('beforeend', `
-            <div id="${id}" class="toast align-items-center ${cls} border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body d-flex align-items-center gap-2">
-                        <i class="bi ${ico}"></i><span>${esc(msg)}</span>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>`);
-        const el = document.getElementById(id);
+    // ── Toast ─────────────────────────────────────────────────────────────
+    function toast(msg, type) {
+        type = type || 'success';
+        var container = document.querySelector('.toast-container');
+        var id  = 'toast-' + Date.now();
+        var cls = { success:'text-bg-success', error:'text-bg-danger', warning:'text-bg-warning', info:'text-bg-info' }[type] || 'text-bg-success';
+        var ico = { success:'bi-check-circle-fill', error:'bi-exclamation-triangle-fill', warning:'bi-exclamation-circle-fill', info:'bi-info-circle-fill' }[type] || 'bi-bell-fill';
+        container.insertAdjacentHTML('beforeend',
+            '<div id="'+id+'" class="toast align-items-center '+cls+' border-0" role="alert">' +
+              '<div class="d-flex">' +
+                '<div class="toast-body d-flex align-items-center gap-2">' +
+                  '<i class="bi '+ico+'"></i><span>'+escHtml(msg)+'</span>' +
+                '</div>' +
+                '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+              '</div>' +
+            '</div>'
+        );
+        var el = document.getElementById(id);
         new bootstrap.Toast(el, { autohide: true, delay: 4000 }).show();
-        el.addEventListener('hidden.bs.toast', () => el.remove());
+        el.addEventListener('hidden.bs.toast', function(){ el.remove(); });
     }
 
-    function esc(s) {
-        const d = document.createElement('div');
+    function escHtml(s) {
+        var d = document.createElement('div');
         d.textContent = String(s || '');
         return d.innerHTML;
     }
 
-    function setLoading(btn, loading) {
+    function setLoading(btn, loading, label) {
         if (loading) {
             btn.disabled = true;
             btn._orig = btn.innerHTML;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + (label || 'Saving...');
         } else {
             btn.disabled = false;
             btn.innerHTML = btn._orig || btn.innerHTML;
@@ -314,55 +324,52 @@ const grouped = {};
     }
 
     // ── ADD FORM ──────────────────────────────────────────────────────────
-    document.getElementById('addForm').addEventListener('submit', async (e) => {
+    document.getElementById('addForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const form = e.target;
+        var form = e.target;
         if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
 
-        const btn = document.getElementById('addBtn');
+        var btn = document.getElementById('addBtn');
         setLoading(btn, true);
 
         try {
-            const fd = new FormData(form);
+            var fd = new FormData(form);
             fd.set('_csrf', CSRF);
 
-            // FIX: post to /api/beneficiaries (absolute path)
-            const res  = await fetch('/api/beneficiaries', {
+            var res  = await fetch('/api/beneficiaries', {
                 method:      'POST',
                 body:        fd,
                 credentials: 'same-origin',
                 headers:     { 'X-CSRF-Token': CSRF }
             });
-            const data = await res.json();
+            var data = await res.json();
 
             if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to add beneficiary');
 
             toast('Beneficiary saved!', 'success');
             form.reset();
             form.classList.remove('was-validated');
-            // Reload to show the new card
-            setTimeout(() => location.reload(), 1000);
+            setTimeout(function(){ location.reload(); }, 1000);
 
         } catch (err) {
             toast(err.message, 'error');
+            setLoading(btn, false);
         }
-        setLoading(btn, false);
     });
 
     // ── SEARCH & FILTER ───────────────────────────────────────────────────
     function applyFilter() {
-        const q    = (document.getElementById('searchInput').value || '').toLowerCase();
-        const type = (document.getElementById('filterType').value  || '').toLowerCase();
+        var q    = (document.getElementById('searchInput').value || '').toLowerCase();
+        var type = (document.getElementById('filterType').value  || '').toLowerCase();
 
-        document.querySelectorAll('.ben-item').forEach(item => {
-            const matchType  = !type || item.dataset.type === type;
-            const matchQuery = !q || item.dataset.label.includes(q) || item.dataset.value.includes(q);
+        document.querySelectorAll('.ben-item').forEach(function(item) {
+            var matchType  = !type || item.dataset.type === type;
+            var matchQuery = !q    || item.dataset.label.includes(q) || item.dataset.value.includes(q);
             item.style.display = (matchType && matchQuery) ? '' : 'none';
         });
 
-        // Hide section headings when all items in that section are hidden
-        document.querySelectorAll('.type-section').forEach(section => {
-            const visible = section.querySelectorAll('.ben-item:not([style*="display: none"])').length;
+        document.querySelectorAll('.type-section').forEach(function(section) {
+            var visible = section.querySelectorAll('.ben-item:not([style*="display: none"])').length;
             section.style.display = visible ? '' : 'none';
         });
     }
@@ -371,30 +378,24 @@ const grouped = {};
     document.getElementById('filterType').addEventListener('change', applyFilter);
 
     // ── FAVOURITE ─────────────────────────────────────────────────────────
-    document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.fav-btn');
+    document.addEventListener('click', async function(e) {
+        var btn = e.target.closest('.fav-btn');
         if (!btn) return;
-        const id = btn.dataset.id;
+        var id = btn.dataset.id;
 
         try {
-            // FIX: calls /api/beneficiaries/:id/favorite (route now exists)
-            const res  = await fetch(`/api/beneficiaries/${id}/favorite`, {
+            var res  = await fetch('/api/beneficiaries/' + id + '/favorite', {
                 method:      'POST',
                 credentials: 'same-origin',
                 headers:     { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' },
                 body:        JSON.stringify({ _csrf: CSRF })
             });
-            const data = await res.json();
+            var data = await res.json();
             if (!res.ok || !data.ok) throw new Error(data.error || 'Failed');
 
-            const icon = btn.querySelector('i');
-            if (data.isFavorite) {
-                icon.className = 'bi bi-star-fill';
-                btn.title = 'Remove favourite';
-            } else {
-                icon.className = 'bi bi-star';
-                btn.title = 'Add to favourites';
-            }
+            var icon = btn.querySelector('i');
+            icon.className = data.isFavorite ? 'bi bi-star-fill' : 'bi bi-star';
+            btn.title = data.isFavorite ? 'Remove favourite' : 'Add to favourites';
             toast(data.message, 'success');
         } catch (err) {
             toast(err.message, 'error');
@@ -402,38 +403,35 @@ const grouped = {};
     });
 
     // ── DELETE ────────────────────────────────────────────────────────────
-    let pendingDeleteId = null;
+    var pendingDeleteId = null;
 
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.del-btn');
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.del-btn');
         if (!btn) return;
         pendingDeleteId = btn.dataset.id;
         document.getElementById('deleteLabel').textContent = btn.dataset.label || 'this beneficiary';
         new bootstrap.Modal(document.getElementById('deleteModal')).show();
     });
 
-    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
         if (!pendingDeleteId) return;
-        const btn = document.getElementById('confirmDeleteBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deleting...';
+        var btn = document.getElementById('confirmDeleteBtn');
+        setLoading(btn, true, 'Deleting...');
 
         try {
-            const res  = await fetch(`/api/beneficiaries/${pendingDeleteId}`, {
+            var res  = await fetch('/api/beneficiaries/' + pendingDeleteId, {
                 method:      'DELETE',
                 credentials: 'same-origin',
                 headers:     { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' },
                 body:        JSON.stringify({ _csrf: CSRF })
             });
-            const data = await res.json();
+            var data = await res.json();
             if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
 
-            // Remove from DOM
-            const card = document.querySelector(`.ben-item[data-id="${pendingDeleteId}"]`);
+            var card = document.querySelector('.ben-item[data-id="' + pendingDeleteId + '"]');
             if (card) card.remove();
 
-            // Update count
-            const countEl = document.getElementById('totalCount');
+            var countEl = document.getElementById('totalCount');
             if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
 
             bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
@@ -443,8 +441,7 @@ const grouped = {};
             toast(err.message, 'error');
         }
 
-        btn.disabled = false;
-        btn.innerHTML = 'Delete';
+        setLoading(btn, false);
         pendingDeleteId = null;
     });
 
