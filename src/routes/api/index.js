@@ -18,8 +18,12 @@ const userController = require('../../controllers/userController');
 const adminController = require('../../controllers/adminController');
 
 /**
- * Public API routes
+ * =========================================================
+ * PUBLIC API ROUTES - NO AUTHENTICATION REQUIRED
+ * =========================================================
  */
+
+// Auth endpoints
 router.post('/auth/register',
     rateLimiter.auth,
     validate([
@@ -59,21 +63,46 @@ router.post('/auth/reset',
     authController.resetPassword
 );
 
-/**
- * Public bill data endpoints (no auth required)
- */
+// Public bill data endpoints
 router.get('/bill/data/plans', billController.getDataPlans);
 router.get('/bill/tv/packages', billController.getTVPackages);
 router.get('/bill/verify', billController.verifyCustomer);
 
-/**
- * Webhook endpoints (no CSRF, special handling)
- */
+// Webhook endpoints (no auth)
 router.post('/webhook/flutterwave', walletController.handleFlutterwaveWebhook);
-// Add other webhooks as needed
 
 /**
- * Protected API routes (require authentication)
+ * =========================================================
+ * CSRF TOKEN ENDPOINT - MUST BE PUBLIC (BEFORE AUTH MIDDLEWARE)
+ * =========================================================
+ */
+// IMPORTANT: This must be accessible without authentication
+router.use('/csrf', require('./csrf'));
+
+// Debug CSRF endpoint (also public)
+router.get('/csrf-debug', (req, res) => {
+    try {
+        const token = generateToken(req);
+        res.json({ 
+            ok: true, 
+            csrfToken: token,
+            sessionId: req.session?.id,
+            hasSecret: !!req.session?.csrfSecret
+        });
+    } catch (error) {
+        console.error('CSRF debug error:', error);
+        res.status(500).json({ 
+            ok: false, 
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+/**
+ * =========================================================
+ * PROTECTED API ROUTES - AUTHENTICATION REQUIRED
+ * =========================================================
  */
 router.use(isAuthenticated);
 
@@ -116,9 +145,6 @@ router.post('/wallet/requery',
     ]),
     walletController.requeryTransaction
 );
-
-// Add this with your other routes
-router.use('/csrf', require('./csrf'));
 
 /**
  * Bill payment endpoints
@@ -270,25 +296,5 @@ router.post('/admin/wallet/adjust',
 );
 router.get('/admin/logs', adminController.getLogs);
 router.get('/admin/health', adminController.getHealth);
-
-// Add this temporary debug route
-router.get('/csrf-debug', (req, res) => {
-    try {
-        const token = generateToken(req);
-        res.json({ 
-            ok: true, 
-            csrfToken: token,
-            sessionId: req.session.id,
-            hasSecret: !!req.session.csrfSecret
-        });
-    } catch (error) {
-        console.error('CSRF debug error:', error);
-        res.status(500).json({ 
-            ok: false, 
-            error: error.message,
-            stack: error.stack
-        });
-    }
-});
 
 module.exports = router;
