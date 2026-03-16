@@ -275,6 +275,26 @@ app.head('/', (req, res) => {
         });
     });
 
+    // Add this RIGHT AFTER your session middleware
+app.get('/debug-render', (req, res) => {
+    res.json({
+        NODE_ENV: process.env.NODE_ENV,
+        BASE_URL: process.env.BASE_URL,
+        PORT: process.env.PORT,
+        hasSession: !!req.session,
+        sessionID: req.session?.id,
+        headers: {
+            host: req.get('host'),
+            referer: req.get('referer')
+        },
+        envVars: {
+            // Only show that they exist, not the values
+            SESSION_SECRET: process.env.SESSION_SECRET ? 'SET' : 'MISSING',
+            MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'MISSING'
+        }
+    });
+});
+
     // Load auth routes
     console.log('📂 Loading auth routes from: ./src/routes/web/auth.js');
     try {
