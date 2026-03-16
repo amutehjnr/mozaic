@@ -109,7 +109,6 @@ connectDB().then(() => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            domain: process.env.NODE_ENV === 'production' ? process.env.DOMAIN : undefined
         },
         name: 'mozaic.sid',
         rolling: true
