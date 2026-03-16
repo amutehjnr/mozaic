@@ -24,62 +24,25 @@ class AuthController {
     /**
      * Show login/register page
      */
-    /**
- * Show login/register page
- */
-showAuthPage(req, res) {
+    showAuthPage(req, res) {
     try {
         const isLogin = req.path === '/login';
-        console.log('🔍 showAuthPage called:', { isLogin, path: req.path });
         
-        // Safely get CSRF token
-        let csrfToken = '';
-        try {
-            // Check if csrfToken exists and is a function before calling
-            if (req.csrfToken && typeof req.csrfToken === 'function') {
-                csrfToken = req.csrfToken();
-            } else {
-                console.log('⚠️ req.csrfToken not available, using fallback');
-                csrfToken = 'fallback-token';
-            }
-        } catch (csrfError) {
-            console.error('❌ Error getting CSRF token:', csrfError.message);
-            csrfToken = 'error-fallback';
-        }
-        
-        // Get flash messages safely
-        let flashMessages = {};
-        try {
-            flashMessages = req.flash ? req.flash() : {};
-        } catch (flashError) {
-            console.error('❌ Error getting flash messages:', flashError.message);
-            flashMessages = {};
-        }
-        
-        // Render the page
-        res.render('auth/index', {
-            title: isLogin ? 'Sign In - MozAic' : 'Create Account - MozAic',
-            bodyClass: 'auth-page',
-            mode: isLogin ? 'login' : 'register',
-            formData: {},
-            csrfToken: csrfToken,
-            flashMessages: flashMessages
-        });
-    } catch (error) {
-        console.error('❌ CRITICAL ERROR in showAuthPage:', error);
-        console.error(error.stack);
-        
-        // Send a fallback response so user sees something
-        res.status(500).send(`
+        // Send raw HTML instead of using EJS
+        res.send(`
+            <!DOCTYPE html>
             <html>
-                <head><title>Error</title></head>
-                <body style="font-family: Arial; text-align: center; padding: 50px;">
-                    <h1>Login Page Temporarily Unavailable</h1>
-                    <p>We're working on fixing this issue. Please try again in a few minutes.</p>
-                    <p><a href="/" style="color: #EF5134;">Return to Home</a></p>
-                </body>
+            <head><title>Test</title></head>
+            <body>
+                <h1>Login Page Test</h1>
+                <p>If you see this, the route works.</p>
+                <p>CSRF Token: ${req.csrfToken ? req.csrfToken() : 'none'}</p>
+            </body>
             </html>
         `);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Error: ' + error.message);
     }
 }
 
