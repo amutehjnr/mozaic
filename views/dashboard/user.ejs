@@ -6,6 +6,11 @@ const transactions = typeof transactionsData !== 'undefined' ? transactionsData 
 const todayTotal = typeof todayTotalData !== 'undefined' ? todayTotalData : 0;
 const kpiTx = transactions.length;
 
+// Debug mode flags - RECEIVED FROM SERVER (FIXED)
+const flwDebugMode = typeof flwDebugModeData !== 'undefined' ? flwDebugModeData : false;
+const vtpassDebugMode = typeof vtpassDebugModeData !== 'undefined' ? vtpassDebugModeData : false;
+const debugMode = flwDebugMode || vtpassDebugMode;
+
 // Format helpers
 const formatNaira = (amount) => '₦' + Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const walletBalance = wallet.balance || 0;
@@ -13,11 +18,6 @@ const walletBalance = wallet.balance || 0;
 // Wallet display ID
 const walletDisplayId = 'WLT-' + String(wallet._id || wallet.id || '').slice(-6).padStart(6, '0').toUpperCase();
 const walletStatus = wallet.status || 'active';
-
-// Debug mode flags
-const flwDebugMode = typeof flwDebugMode !== 'undefined' ? flwDebugMode : false;
-const vtpassDebugMode = typeof vtpassDebugMode !== 'undefined' ? vtpassDebugMode : false;
-const debugMode = flwDebugMode || vtpassDebugMode;
 
 // Display name
 const displayName = user.name && user.name !== '' ? user.name : (user.email || 'User');
