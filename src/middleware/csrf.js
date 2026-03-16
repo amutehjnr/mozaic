@@ -7,12 +7,16 @@ const tokens = new Tokens();
 /**
  * Setup CSRF protection
  */
-const setupCsrf = (app) => {
-    app.use((req, res, next) => {
+const setupCsrf = (req, res, next) => {
+    
         try {
             // Generate or retrieve CSRF secret from session
+            if (!req.session) {
+              return next();
+            }
+
             if (!req.session.csrfSecret) {
-                req.session.csrfSecret = tokens.secretSync();
+               req.session.csrfSecret = tokens.secretSync();
             }
             
             // Generate token for this request
@@ -38,7 +42,6 @@ const setupCsrf = (app) => {
             req.csrfToken = () => 'dev-token'; // Add this line
             next();
         }
-    });
 };
 
 /**
