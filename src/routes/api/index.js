@@ -138,7 +138,12 @@ router.post('/wallet/reconcile',
 );
 
 // ── Bills ─────────────────────────────────────────────────────────────────
+// NOTE: handleMultipart is required on all bill POST routes because the
+// dashboard sends FormData (multipart/form-data). Without it, req.body
+// is empty and validation fails with "Invalid value" for all fields.
+
 router.post('/bill/airtime',
+    handleMultipart,
     rateLimiter.api, csrfProtection,
     validate([
         body('network').isIn(['mtn', 'glo', 'airtel', '9mobile']),
@@ -150,6 +155,7 @@ router.post('/bill/airtime',
 );
 
 router.post('/bill/data',
+    handleMultipart,
     rateLimiter.api, csrfProtection,
     validate([
         body('network').isIn(['mtn', 'glo', 'airtel', '9mobile']),
@@ -162,6 +168,7 @@ router.post('/bill/data',
 );
 
 router.post('/bill/electricity',
+    handleMultipart,
     rateLimiter.api, csrfProtection,
     validate([
         body('disco').isIn(['aedc', 'ikedc', 'ekedc', 'kedco']),
@@ -175,6 +182,7 @@ router.post('/bill/electricity',
 );
 
 router.post('/bill/tv',
+    handleMultipart,
     rateLimiter.api, csrfProtection,
     validate([
         body('provider').isIn(['dstv', 'gotv', 'startimes']),
