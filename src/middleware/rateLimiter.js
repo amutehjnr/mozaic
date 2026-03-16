@@ -1,36 +1,20 @@
 const rateLimit = require('express-rate-limit');
-const MongoStore = require('rate-limit-mongo');
 const logger = require('../utils/logger');
-
-// Create store based on environment
-let store;
-if (process.env.REDIS_ENABLED === 'true' && process.env.REDIS_URL) {
-    // Use Redis store if available
-    const RedisStore = require('rate-limit-redis');
-    const Redis = require('ioredis');
-    const client = new Redis(process.env.REDIS_URL);
-    
-    store = new RedisStore({
-        client,
-        prefix: 'rl:'
-    });
-} else {
-    // Fallback to MongoDB store
-    store = new MongoStore({
-        uri: process.env.MONGODB_URI,
-        collectionName: 'rateLimits',
-        expireTimeMs: 60 * 60 * 1000 // 1 hour
-    });
-}
 
 // Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
+// Log rate limiter status
+if (isDevelopment) {
+    console.log('🔧 Rate limiting is in DEVELOPMENT mode (limits are higher)');
+} else {
+    console.log('🔒 Rate limiting is in PRODUCTION mode (standard limits apply)');
+}
+
 /**
- * General API rate limiter
+ * General API rate limiter - Using memory store (no MongoDB dependency)
  */
 const apiLimiter = rateLimit({
-    store,
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: isDevelopment ? 1000 : 100, // Higher limit in development
     message: {
@@ -57,7 +41,9 @@ const apiLimiter = rateLimit({
             });
         }
 
-        req.flash('error', 'Too many requests, please try again later.');
+        if (req.flash) {
+            req.flash('error', 'Too many requests, please try again later.');
+        }
         res.redirect('back');
     },
     skip: (req) => {
@@ -67,10 +53,9 @@ const apiLimiter = rateLimit({
 });
 
 /**
- * Stricter rate limiter for auth endpoints
+ * Stricter rate limiter for auth endpoints - Using memory store
  */
 const authLimiter = rateLimit({
-    store,
     windowMs: 60 * 60 * 1000, // 1 hour
     max: isDevelopment ? 1000 : 10, // Much higher limit in development
     message: {
@@ -104,16 +89,17 @@ const authLimiter = rateLimit({
             });
         }
 
-        req.flash('error', 'Too many authentication attempts, please try again later.');
+        if (req.flash) {
+            req.flash('error', 'Too many authentication attempts, please try again later.');
+        }
         res.redirect('/auth');
     }
 });
 
 /**
- * Rate limiter for wallet operations
+ * Rate limiter for wallet operations - Using memory store
  */
 const walletLimiter = rateLimit({
-    store,
     windowMs: 60 * 60 * 1000, // 1 hour
     max: isDevelopment ? 500 : 50, // Higher in development
     message: {
@@ -128,10 +114,9 @@ const walletLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for bill payments
+ * Rate limiter for bill payments - Using memory store
  */
 const billLimiter = rateLimit({
-    store,
     windowMs: 60 * 60 * 1000, // 1 hour
     max: isDevelopment ? 1000 : 100, // Higher in development
     message: {
@@ -147,7 +132,6 @@ const billLimiter = rateLimit({
  */
 const createLimiter = (options) => {
     return rateLimit({
-        store,
         windowMs: options.windowMs || 15 * 60 * 1000,
         max: isDevelopment ? (options.max || 100) * 10 : (options.max || 100),
         message: options.message || {
@@ -158,13 +142,6 @@ const createLimiter = (options) => {
         skip: options.skip
     });
 };
-
-// Log rate limiter status
-if (isDevelopment) {
-    console.log('🔧 Rate limiting is in DEVELOPMENT mode (limits are higher)');
-} else {
-    console.log('🔒 Rate limiting is in PRODUCTION mode (standard limits apply)');
-}
 
 module.exports = {
     api: apiLimiter,
