@@ -63,46 +63,29 @@ const isAuthenticated = async (req, res, next) => {
  * Check if user is guest (not authenticated) - FIXED VERSION
  */
 const isGuest = async (req, res, next) => {
-    // If no userId, they're a guest - let them in
+    // If no session or no userId, they're a guest - proceed immediately
     if (!req.session || !req.session.userId) {
         return next();
     }
 
     try {
-        // Check if user exists in database
         const user = await User.findById(req.session.userId);
         
         if (user && user.isActive) {
-            // Valid logged-in user - redirect to dashboard
+            // User is logged in - redirect to dashboard
             return res.redirect('/dashboard/user');
         }
         
-        // User not found or inactive - destroy session properly
-        req.session.destroy((err) => {
-            if (err) {
-                console.error('Session destroy error in isGuest:', err);
-            }
-            // After destroy completes, let them access login page
-            next();
-        });
+        // User not found or inactive - destroy session and proceed
+        req.session.destroy(() => next());
         
-    } catch (err) {
-        console.error('isGuest error:', err);
-        
-        // On error, destroy session properly
-        if (req.session) {
-            req.session.destroy((destroyErr) => {
-                if (destroyErr) {
-                    console.error('Session destroy error in isGuest catch:', destroyErr);
-                }
-                // Still let them proceed to login
-                next();
-            });
-        } else {
-            next();
-        }
+    } catch (error) {
+        console.error('isGuest error:', error);
+        // On error, destroy session and proceed
+        req.session.destroy(() => next());
     }
 };
+
 
 /**
  * Check if user is admin

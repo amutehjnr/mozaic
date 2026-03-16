@@ -11,7 +11,6 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
-const fs = require('fs');
 
 // Import middleware
 const rateLimiter = require('./src/middleware/rateLimiter');
@@ -80,23 +79,12 @@ connectDB().then(() => {
     require('./src/models/Referral');
     
     console.log('✅ All models registered successfully');
-    
-    // Debug: Verify User model is properly registered
-    try {
-        const User = mongoose.model('User');
-        console.log('🔍 User model verification:');
-        console.log('   - Model exists:', !!User);
-        console.log('   - findOne is function:', typeof User.findOne === 'function');
-        console.log('   - create is function:', typeof User.create === 'function');
-    } catch (modelError) {
-        console.error('❌ User model not registered:', modelError.message);
-    }
 
-    // ==================== Session Configuration ====================
+    // ==================== Session Configuration - FIXED FOR RENDER ====================
     const sessionConfig = {
         secret: process.env.SESSION_SECRET || 'dev-secret-key',
         resave: false,
-        saveUninitialized: false,
+        saveUninitialized: true, // CRITICAL: Changed to true for Render
         store: MongoStore.create({
             mongoUrl: process.env.MONGODB_URI,
             collectionName: 'sessions',
@@ -109,16 +97,18 @@ connectDB().then(() => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+            // REMOVED domain option - let Express handle it
         },
         name: 'mozaic.sid',
-        rolling: true
+        rolling: true,
+        proxy: true // CRITICAL: Added for Render
     };
 
     if (process.env.NODE_ENV === 'production') {
         app.set('trust proxy', 1);
     }
 
-    // IMPORTANT: Session MUST come before flash and CSRF
+    // IMPORTANT: Session MUST come before everything else
     app.use(session(sessionConfig));
 
     // ==================== Flash Messages ====================
@@ -128,6 +118,20 @@ connectDB().then(() => {
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
 
+    // ==================== Critical Health Check Routes ====================
+    // These must respond IMMEDIATELY for Render
+    app.get('/health', (req, res) => {
+        res.status(200).json({ status: 'healthy', time: Date.now() });
+    });
+
+    app.head('/health', (req, res) => {
+        res.status(200).end();
+    });
+
+    app.head('/', (req, res) => {
+        res.status(200).end();
+    });
+
     // ==================== Global Middleware ====================
     app.use((req, res, next) => {
         res.locals.user = req.session?.user || null;
@@ -135,126 +139,33 @@ connectDB().then(() => {
         res.locals.messages = req.flash ? req.flash() : {};
         res.locals.queryParams = req.query;
         res.locals.env = process.env.NODE_ENV;
-        res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host') || 'mozaic-eomm.onrender.com'}`;
+        res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host')}`;
         res.locals.nonce = crypto.randomBytes(16).toString('base64');
         res.locals.bodyClass = '';
         res.locals.formData = {};
-        
-        // CSRF token will be set by csrf middleware
         res.locals.csrfToken = '';
         
-        // Safe URL helper function
+        // SIMPLIFIED url helper - no complex logic
         res.locals.url = (path) => {
             if (!path) return '';
-            if (path.startsWith('http://') || path.startsWith('https://')) {
-                return path;
-            }
-            const cleanPath = path.startsWith('/') ? path : '/' + path;
-            if (process.env.NODE_ENV !== 'production' && cleanPath.includes('localhost')) {
-                return cleanPath.replace('https://', 'http://');
-            }
-            return cleanPath;
+            return path.startsWith('/') ? path : '/' + path;
         };
         
         next();
-    });
-
-    // ==================== CRITICAL HEALTH CHECK ====================
-// These must respond IMMEDIATELY for Render
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', time: Date.now() });
-});
-
-app.head('/health', (req, res) => {
-    res.status(200).end();
-});
-
-app.head('/', (req, res) => {
-    res.status(200).end();
-});
-
-    // Request logging middleware
-    app.use((req, res, next) => {
-        console.log(`\n📨 ${req.method} ${req.url}`);
-        console.log('   Headers:', {
-            host: req.get('host'),
-            referer: req.get('referer'),
-            'user-agent': req.get('user-agent')?.substring(0, 50)
-        });
-        
-        if (req.session) {
-            console.log('   Session ID exists:', !!req.session.id);
-            console.log('   User ID:', req.session.userId);
-        }
-        
-        next();
-    });
-
-    // Response tracking middleware
-    app.use((req, res, next) => {
-        console.log('\n🎯 REQUEST STARTED:', req.method, req.url);
-        console.log('   Timestamp:', new Date().toISOString());
-        
-        const originalJson = res.json;
-        res.json = function(data) {
-            console.log('   📦 JSON Response sent for', req.url);
-            return originalJson.call(this, data);
-        };
-        
-        req.on('error', (err) => {
-            console.error('🚨 Request error:', err);
-        });
-        
-        next();
-    });
-
-    // Add this after session middleware to catch errors early
-    app.use((req, res, next) => {
-        const start = Date.now();
-    
-        // Log when request completes
-        res.on('finish', () => {
-           const duration = Date.now() - start;
-            if (res.statusCode >= 400) {
-               console.log(`⚠️ ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
-            }
-        });
-    
-        next();
-    });
-
-    // Debug environment route
-    app.get('/debug/env', (req, res) => {
-        res.json({
-            NODE_ENV: process.env.NODE_ENV,
-            BASE_URL: process.env.BASE_URL,
-            DOMAIN: process.env.DOMAIN,
-            MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
-            PORT: process.env.PORT,
-            hasSession: !!req.session,
-            sessionID: req.session?.id,
-            hasCsrfSecret: !!req.session?.csrfSecret,
-            headers: {
-                host: req.get('host'),
-                origin: req.get('origin'),
-                referer: req.get('referer')
-            }
-        });
     });
 
     // ==================== Rate Limiting ====================
     app.use('/api/', rateLimiter.api);
     app.use('/auth/', rateLimiter.auth);
 
-    // ==================== CSRF Protection ====================
-    // FIXED: Call setupCsrf() to get the middleware function
+    // ==================== CSRF Protection - FIXED VERSION ====================
     try {
-      app.use(setupCsrf());
-      console.log('✅ CSRF middleware initialized');
+        app.use(setupCsrf());
+        console.log('✅ CSRF middleware initialized');
     } catch (error) {
-      console.error('❌ Failed to initialize CSRF:', error);
+        console.error('❌ Failed to initialize CSRF:', error);
     }
-    
+
     // ==================== Routes ====================
 
     // Home page route
@@ -266,57 +177,30 @@ app.head('/', (req, res) => {
         });
     });
 
-    // Simple test route
-    app.get('/test-simple', (req, res) => {
-        res.json({ 
-            status: 'ok',
-            session: !!req.session,
-            message: 'Simple test route working' 
+    // Debug route to check environment
+    app.get('/debug/env', (req, res) => {
+        res.json({
+            NODE_ENV: process.env.NODE_ENV,
+            BASE_URL: process.env.BASE_URL,
+            hasSession: !!req.session,
+            sessionID: req.session?.id,
+            hasCsrfSecret: !!req.session?.csrfSecret,
+            cookies: req.cookies
         });
     });
 
-    // Add this RIGHT AFTER your session middleware
-app.get('/debug-render', (req, res) => {
-    res.json({
-        NODE_ENV: process.env.NODE_ENV,
-        BASE_URL: process.env.BASE_URL,
-        PORT: process.env.PORT,
-        hasSession: !!req.session,
-        sessionID: req.session?.id,
-        headers: {
-            host: req.get('host'),
-            referer: req.get('referer')
-        },
-        envVars: {
-            // Only show that they exist, not the values
-            SESSION_SECRET: process.env.SESSION_SECRET ? 'SET' : 'MISSING',
-            MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'MISSING'
-        }
-    });
-});
-
     // Load auth routes
-    console.log('📂 Loading auth routes from: ./src/routes/web/auth.js');
+    console.log('📂 Loading auth routes...');
     try {
         const authRoutes = require('./src/routes/web/auth');
         app.use('/auth', authRoutes);
         console.log('✅ Auth routes loaded successfully');
-        
-        if (authRoutes.stack) {
-            console.log('📋 Auth routes registered:');
-            authRoutes.stack.forEach(layer => {
-                if (layer.route) {
-                    const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
-                    console.log(`   ${methods} ${layer.route.path}`);
-                }
-            });
-        }
     } catch (error) {
         console.error('❌ Failed to load auth routes:', error.message);
     }
 
     // Load dashboard routes
-    console.log('\n📂 Loading dashboard routes from: ./src/routes/web/dashboard.js');
+    console.log('📂 Loading dashboard routes...');
     try {
         const dashboardRoutes = require('./src/routes/web/dashboard');
         app.use('/dashboard', dashboardRoutes);
@@ -326,7 +210,7 @@ app.get('/debug-render', (req, res) => {
     }
 
     // Load API routes
-    console.log('\n📂 Loading API routes from: ./src/routes/api/index.js');
+    console.log('📂 Loading API routes...');
     try {
         const apiRoutes = require('./src/routes/api/index');
         app.use('/api', apiRoutes);
@@ -340,17 +224,6 @@ app.get('/debug-render', (req, res) => {
         res.send('✅ Server test route working!');
     });
 
-    // ==================== Health Check ====================
-    app.get('/health', (req, res) => {
-        res.status(200).json({
-            status: 'healthy',
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-            environment: process.env.NODE_ENV,
-            mongodb: 'connected'
-        });
-    });
-
     // ==================== 404 Handler ====================
     app.use((req, res) => {
         if (req.xhr || req.path.startsWith('/api/')) {
@@ -360,74 +233,37 @@ app.get('/debug-render', (req, res) => {
             });
         }
         
-        try {
-            res.status(404).render('error/404', {
-                title: 'Page Not Found',
-                bodyClass: 'error-page',
-                flashMessages: req.flash ? req.flash() : {}
-            });
-        } catch (error) {
-            res.status(404).send(`
-                <html>
-                    <head><title>404 Not Found</title></head>
-                    <body style="font-family: Arial; text-align: center; padding: 50px;">
-                        <h1>404 - Page Not Found</h1>
-                        <p>The page you're looking for doesn't exist.</p>
-                        <a href="/" style="color: #667eea; text-decoration: none;">Go Home</a>
-                    </body>
-                </html>
-            `);
-        }
+        res.status(404).render('error/404', {
+            title: 'Page Not Found',
+            bodyClass: 'error-page',
+            flashMessages: req.flash ? req.flash() : {}
+        });
     });
 
     // ==================== Error Handler ====================
     app.use(errorHandler);
 
-    // ==================== Start Server ====================
+    // ==================== Start Server - FIXED FOR RENDER ====================
     const PORT = process.env.PORT || 3000;
     const server = http.createServer(app);
 
-    // Add server event listeners for better debugging
-    server.on('listening', () => {
-        const addr = server.address();
-        const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
-        console.log(`✅ Server is listening on ${bind}`);
-        console.log(`   Port: ${PORT}`);
-        console.log(`   Environment: ${process.env.NODE_ENV}`);
-        console.log(`   Address: ${addr.address}`);
-    });
-
-    server.on('error', (error) => {
-        console.error('❌ Server error:', error);
-        if (error.code === 'EADDRINUSE') {
-            console.error(`   Port ${PORT} is already in use`);
-        }
-    });
-
-    // FIXED: Bind to 0.0.0.0 to accept all connections
     server.listen(PORT, '0.0.0.0', () => {
-        logger.info(`✅ Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-        logger.info(`📝 Base URL: ${process.env.BASE_URL || `https://localhost:${PORT}`}`);
-        logger.info(`🏠 Home page: /`);
-        logger.info(`🔑 Login page: /auth/login`);
-        logger.info(`📝 Register page: /auth/register`);
-        logger.info(`📊 Dashboard: /dashboard/user`);
+        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`   Environment: ${process.env.NODE_ENV}`);
+        console.log(`   Base URL: ${process.env.BASE_URL}`);
+        console.log(`   Login page: /auth/login`);
     });
 
     // Handle unhandled rejections
     process.on('unhandledRejection', (err) => {
-        logger.error('UNHANDLED REJECTION! 💥 Shutting down...');
-        logger.error(err.name, err.message, err.stack);
-        server.close(() => {
-            process.exit(1);
-        });
+        console.error('UNHANDLED REJECTION:', err);
+        server.close(() => process.exit(1));
     });
 
     // Graceful shutdown
     process.on('SIGTERM', () => {
-        logger.info('👋 SIGTERM received. Shutting down gracefully...');
+        console.log('SIGTERM received, shutting down...');
         server.close(() => {
-            logger.info('💤 Process terminated!');
             mongoose.connection.close();
         });
     });

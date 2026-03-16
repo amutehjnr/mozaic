@@ -147,6 +147,11 @@ router.get('/debug', (req, res) => {
     }
 });
 
+// Simple test route that doesn't use any middleware
+router.get('/ping', (req, res) => {
+    res.send('Auth route is alive');
+});
+
 router.get('/verify-email/:token', isAuthenticated, authController.verifyEmail);
 
 module.exports = router;
