@@ -25,26 +25,17 @@ class AuthController {
      * Show login/register page
      */
     showAuthPage(req, res) {
-    try {
         const isLogin = req.path === '/login';
-        
-        // Send raw HTML instead of using EJS
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Test</title></head>
-            <body>
-                <h1>Login Page Test</h1>
-                <p>If you see this, the route works.</p>
-                <p>CSRF Token: ${req.csrfToken ? req.csrfToken() : 'none'}</p>
-            </body>
-            </html>
-        `);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Error: ' + error.message);
+        console.log('🔍 showAuthPage called:', { isLogin, path: req.path });
+        res.render('auth/index', {
+            title: isLogin ? 'Sign In - MozAic' : 'Create Account - MozAic',
+            bodyClass: 'auth-page',
+            mode: isLogin ? 'login' : 'register',
+            formData: {},
+            csrfToken: req.csrfToken ? req.csrfToken() : '',
+            flashMessages: req.flash()
+        });
     }
-}
 
     /**
      * Show forgot password page

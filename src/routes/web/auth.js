@@ -59,7 +59,6 @@ router.post('/register',
 
 router.post('/login', 
     handleMultipart,
-    isGuest,
     rateLimiter.auth,
     csrfProtection,
     validate(loginValidation),
