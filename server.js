@@ -208,6 +208,21 @@ app.head('/', (req, res) => {
         next();
     });
 
+    // Add this after session middleware to catch errors early
+    app.use((req, res, next) => {
+        const start = Date.now();
+    
+        // Log when request completes
+        res.on('finish', () => {
+           const duration = Date.now() - start;
+            if (res.statusCode >= 400) {
+               console.log(`⚠️ ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
+            }
+        });
+    
+        next();
+    });
+
     // Debug environment route
     app.get('/debug/env', (req, res) => {
         res.json({
