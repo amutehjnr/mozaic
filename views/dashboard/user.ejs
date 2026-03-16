@@ -11,12 +11,12 @@ const formatNaira = (amount) => '₦' + Number(amount).toLocaleString('en-NG', {
 const walletBalance = wallet.balance || 0;
 
 // Wallet display ID
-const walletDisplayId = 'WLT-' + String(wallet.id || '').slice(-6).padStart(6, '0');
+const walletDisplayId = 'WLT-' + String(wallet._id || wallet.id || '').slice(-6).padStart(6, '0').toUpperCase();
 const walletStatus = wallet.status || 'active';
 
 // Debug mode flags
-const flwDebugMode = !process.env.FLW_SECRET_KEY || !process.env.FLW_PUBLIC_KEY;
-const vtpassDebugMode = !process.env.VTPASS_API_KEY || !process.env.VTPASS_SECRET_KEY;
+const flwDebugMode = typeof flwDebugMode !== 'undefined' ? flwDebugMode : false;
+const vtpassDebugMode = typeof vtpassDebugMode !== 'undefined' ? vtpassDebugMode : false;
 const debugMode = flwDebugMode || vtpassDebugMode;
 
 // Display name
@@ -31,38 +31,24 @@ if (typeof queryParams !== 'undefined' && queryParams) {
         const amount = queryParams.amount || 0;
         const balance = queryParams.balance || walletBalance;
         successMsg = `✅ Payment successful! ₦${Number(amount).toFixed(2)} has been added to your wallet. New balance: ₦${Number(balance).toFixed(2)}`;
-        
-        // Update wallet balance if provided
         if (balance) wallet.balance = parseFloat(balance);
     }
-    
     if (queryParams.payment_failed === '1') {
         const tx_ref = queryParams.tx_ref || '';
         const status = queryParams.status || '';
         errorMsg = `❌ Payment failed. ${tx_ref ? 'Reference: ' + tx_ref + '. ' : ''}${status ? 'Status: ' + status : ''}`;
     }
-    
     if (queryParams.payment_error) {
-        const error_type = queryParams.payment_error;
-        const tx_ref = queryParams.tx_ref || '';
-        
-        switch (error_type) {
-            case 'missing_reference':
-                errorMsg = `❌ Payment error: Missing transaction reference`;
-                break;
-            case 'transaction_not_found':
-                errorMsg = `❌ Payment error: Transaction not found${tx_ref ? ' (Reference: ' + tx_ref + ')' : ''}`;
-                break;
-            case 'processing_error':
-                errorMsg = `❌ Payment processing error. Please contact support.${tx_ref ? ' (Reference: ' + tx_ref + ')' : ''}`;
-                break;
-            default:
-                errorMsg = `❌ Payment error occurred`;
-        }
+        const err_map = {
+            'missing_reference': 'Missing transaction reference',
+            'transaction_not_found': 'Transaction not found',
+            'processing_error': 'Payment processing error. Please contact support.'
+        };
+        errorMsg = `❌ Payment error: ${err_map[queryParams.payment_error] || 'An error occurred'}`;
     }
 }
 
-// Transaction helpers - FIXED with safety checks
+// Transaction helpers
 const amountNaira = (t) => {
     if (!t) return 0;
     if (t.amount_kobo) return t.amount_kobo / 100;
@@ -73,37 +59,18 @@ const amountNaira = (t) => {
 
 const transactionDetails = (t) => {
     if (!t) return '—';
-    
+    if (t.details) return t.details;
     const parts = [];
-    // Safely iterate over array with for loop
-    const fields = ['network','provider','biller','account_target','plan_code','plan','package','reference'];
-    for (let i = 0; i < fields.length; i++) {
-        const k = fields[i];
-        if (t[k] && t[k] !== '') parts.push(t[k]);
-    }
-    
-    // Try metadata
-    if (t.metadata) {
-        try {
-            const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
-            if (meta) {
-                if (meta.phone) parts.push(meta.phone);
-                if (meta.smartcard) parts.push(meta.smartcard);
-                if (meta.meterNo) parts.push(meta.meterNo);
-            }
-        } catch (e) {}
-    }
-    
-    // Filter and deduplicate safely
-    const clean = [];
-    for (let i = 0; i < parts.length; i++) {
-        const v = parts[i];
-        if (v && v.trim && v.trim() !== '' && clean.indexOf(v) === -1) {
-            clean.push(v);
+    if (t.provider) parts.push(t.provider.toUpperCase());
+    if (t.account_target) parts.push(t.account_target);
+    try {
+        const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+        if (meta) {
+            if (meta.phone) parts.push(meta.phone);
+            if (meta.network) parts.push(meta.network.toUpperCase());
         }
-    }
-    
-    return clean.length ? clean.join(' — ') : '—';
+    } catch(e) {}
+    return parts.filter(Boolean).join(' — ') || '—';
 };
 
 const transactionType = (t) => {
@@ -115,26 +82,15 @@ const transactionType = (t) => {
 
 const transactionCreated = (t) => {
     if (!t) return '';
-    const raw = t.created_at || t.createdAt || t.created || '';
+    const raw = t.created_at || t.createdAt || '';
     if (!raw) return '';
     const ts = new Date(raw);
     if (isNaN(ts.getTime())) return raw;
-    return ts.toLocaleString('en-NG', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    return ts.toLocaleString('en-NG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const transactionStatusClass = (status) => {
-    const classes = {
-        'success': 'badge-soft-success',
-        'pending': 'badge-soft-warning',
-        'failed': 'badge-soft-danger',
-        'processing': 'badge-soft-info'
-    };
+    const classes = { 'success': 'badge-soft-success', 'pending': 'badge-soft-warning', 'failed': 'badge-soft-danger', 'processing': 'badge-soft-info' };
     return classes[status?.toLowerCase()] || 'badge-soft-secondary';
 };
 %>
@@ -147,405 +103,67 @@ const transactionStatusClass = (status) => {
     --jn-bg:#0f172a; --jn-surface:#ffffff; --jn-muted:#64748b; --jn-border:#e5e7eb;
     --jn-shadow-lg:0 24px 48px rgba(2,6,23,.15); --jn-shadow-sm:0 1px 3px rgba(2,6,23,.12),0 1px 2px rgba(2,6,23,.06);
   }
-  
-  body {
-    font-family: var(--jn-font);
-    background: #f8fafc;
-  }
-  
-  /* Navbar */
-  .navbar {
-    background: rgba(11, 18, 32, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 0.75rem 0;
-  }
-  
-  .navbar-brand {
-    font-weight: 800;
-    font-size: 1.5rem;
-    color: white !important;
-  }
-  
-  .navbar-brand span {
-    color: var(--jn-primary);
-  }
-  
-  .nav-link {
-    color: rgba(255,255,255,0.8) !important;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-  
-  .nav-link:hover,
-  .nav-link.active {
-    color: white !important;
-  }
-  
-  .stat-pill {
-    background: rgba(255,255,255,0.1);
-    padding: 0.5rem 1rem;
-    border-radius: 100px;
-    color: white;
-    font-weight: 600;
-    backdrop-filter: blur(5px);
-  }
-  
-  /* Header */
-  #header {
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    padding: 3rem 0;
-    margin-bottom: 2rem;
-  }
-  
-  #header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(to right, rgba(11,18,32,0.95), rgba(11,18,32,0.7));
-  }
-  
-  #header .container {
-    position: relative;
-    z-index: 1;
-    color: white;
-  }
-  
-  /* Cards */
-  .card {
-    border: none;
-    border-radius: 16px;
-    box-shadow: var(--jn-shadow-sm);
-    transition: all 0.2s;
-  }
-  
-  .card:hover {
-    box-shadow: var(--jn-shadow-lg);
-  }
-  
-  .balance-amount {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--jn-primary);
-    line-height: 1.2;
-  }
-  
-  .badge-soft {
-    background: #f1f5f9;
-    color: #334155;
-    padding: 0.25rem 0.75rem;
-    border-radius: 100px;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-  
-  .badge-soft-success {
-    background: #dcfce7;
-    color: #166534;
-  }
-  
-  .badge-soft-warning {
-    background: #fef9c3;
-    color: #854d0e;
-  }
-  
-  .badge-soft-danger {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-  
-  .badge-soft-info {
-    background: #e0f2fe;
-    color: #075985;
-  }
-  
-  .badge-soft-secondary {
-    background: #f1f5f9;
-    color: #334155;
-  }
-  
-  /* Quick action cards */
-  .row.k .card {
-    padding: 1rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: white;
-  }
-  
-  .row.k .card:hover {
-    transform: translateY(-4px);
-    border-color: var(--jn-primary);
-  }
-  
-  .row.k .card img {
-    width: 40px;
-    height: 40px;
-    margin: 0 auto 0.5rem;
-  }
-  
-  .row.k .card a {
-    color: inherit;
-    text-decoration: none;
-  }
-  
-  /* Service tabs */
-  .nav-tabs {
-    border-bottom: 2px solid #e2e8f0;
-  }
-  
-  .nav-tabs .nav-link {
-    color: #64748b !important;
-    border: none;
-    padding: 1rem 1.5rem;
-    font-weight: 600;
-    margin-bottom: -2px;
-  }
-  
-  .nav-tabs .nav-link:hover {
-    color: #334155 !important;
-    border: none;
-  }
-  
-  .nav-tabs .nav-link.active {
-    color: var(--jn-primary) !important;
-    background: none;
-    border-bottom: 2px solid var(--jn-primary);
-  }
-  
-  .tab-content {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-top: none;
-  }
-  
-  /* Form improvements */
-  .form-floating>.form-control,
-  .form-floating>.form-select {
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 1rem 0.75rem;
-    height: auto;
-  }
-  
-  .form-floating>label {
-    padding: 1rem 0.75rem;
-  }
-  
-  .form-control:focus {
-    border-color: var(--jn-primary);
-    box-shadow: 0 0 0 3px rgba(239,81,52,.15);
-  }
-  
-  .btn-theme {
-    background: var(--jn-primary);
-    border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    padding: 0.75rem 1.5rem;
-    color: white;
-    transition: all 0.2s;
-  }
-  
-  .btn-theme:hover {
-    background: var(--jn-primary-600);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(239,81,52,0.3);
-  }
-  
-  .btn-theme:disabled {
-    opacity: 0.6;
-    transform: none;
-  }
-  
-  .password-toggle {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #64748b;
-  }
-  
-  .password-toggle:hover {
-    color: var(--jn-primary);
-  }
-  
-  /* Loading spinner */
-  .spinner-border-sm {
-    width: 1rem;
-    height: 1rem;
-    border-width: 2px;
-  }
-  
-  .btn-loading {
-    position: relative;
-    pointer-events: none;
-    opacity: 0.8;
-  }
-  
-  /* Status alerts */
-  .status-alert {
-    display: none;
-    margin-top: 1rem;
-    border-radius: 12px;
-  }
-  
-  /* TV Package styles */
-  .tv-package-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
-  }
-  
-  .tv-package-card:hover {
-    border-color: var(--jn-primary);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  }
-  
-  .tv-package-card.selected {
-    border-color: var(--jn-primary);
-    background: #fff5f2;
-  }
-  
-  .package-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-    max-height: 60vh;
-    overflow-y: auto;
-    padding: 0.5rem;
-  }
-  
-  .package-item {
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .package-item:hover {
-    border-color: var(--jn-primary);
-    transform: translateY(-2px);
-  }
-  
-  .package-item.selected {
-    border-color: var(--jn-primary);
-    background: #fff5f2;
-  }
-  
-  /* Data plan dropdown */
-  #dataPlanMenu {
-    max-height: 400px;
-    overflow-y: auto;
-    min-width: 300px;
-  }
-  
-  .plan-item {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  
-  .plan-item:last-child {
-    border-bottom: none;
-  }
-  
-  .plan-item:hover {
-    background: #f8fafc;
-  }
-  
-  .plan-item.active {
-    background: #fff5f2;
-  }
-  
-  .network-icon {
-    width: 40px;
-    height: 40px;
-    background: #f1f5f9;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-  }
-  
-  /* Mini KPIs */
-  .mini-kpis .card {
-    background: white;
-    border-left: 4px solid var(--jn-primary);
-  }
-  
-  /* Offcanvas */
-  .offcanvas-user {
-    background: #0b1220;
-    color: white;
-  }
-  
-  .offcanvas-user .nav-link {
-    color: rgba(255,255,255,0.8) !important;
-    padding: 0.75rem 1rem;
-  }
-  
-  .offcanvas-user .nav-link:hover {
-    color: white !important;
-    background: rgba(255,255,255,0.1);
-  }
-  
-  /* Responsive */
+  body { font-family: var(--jn-font); background: #f8fafc; }
+  .navbar { background: rgba(11, 18, 32, 0.95); backdrop-filter: blur(10px); padding: 0.75rem 0; }
+  .navbar-brand { font-weight: 800; font-size: 1.5rem; color: white !important; }
+  .navbar-brand span { color: var(--jn-primary); }
+  .nav-link { color: rgba(255,255,255,0.8) !important; font-weight: 500; transition: all 0.2s; }
+  .nav-link:hover, .nav-link.active { color: white !important; }
+  .stat-pill { background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 100px; color: white; font-weight: 600; }
+  #header { background-size: cover; background-position: center; position: relative; padding: 3rem 0; margin-bottom: 2rem; }
+  #header::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(to right, rgba(11,18,32,0.95), rgba(11,18,32,0.7)); }
+  #header .container { position: relative; z-index: 1; color: white; }
+  .card { border: none; border-radius: 16px; box-shadow: var(--jn-shadow-sm); transition: all 0.2s; }
+  .card:hover { box-shadow: var(--jn-shadow-lg); }
+  .balance-amount { font-size: 2.5rem; font-weight: 700; color: var(--jn-primary); line-height: 1.2; }
+  .badge-soft { background: #f1f5f9; color: #334155; padding: 0.25rem 0.75rem; border-radius: 100px; font-size: 0.875rem; font-weight: 500; }
+  .badge-soft-success { background: #dcfce7; color: #166534; }
+  .badge-soft-warning { background: #fef9c3; color: #854d0e; }
+  .badge-soft-danger { background: #fee2e2; color: #991b1b; }
+  .badge-soft-info { background: #e0f2fe; color: #075985; }
+  .badge-soft-secondary { background: #f1f5f9; color: #334155; }
+  .nav-tabs { border-bottom: 2px solid #e2e8f0; }
+  .nav-tabs .nav-link { color: #64748b !important; border: none; padding: 0.85rem 1.25rem; font-weight: 600; margin-bottom: -2px; }
+  .nav-tabs .nav-link:hover { color: #334155 !important; border: none; }
+  .nav-tabs .nav-link.active { color: var(--jn-primary) !important; background: none; border-bottom: 2px solid var(--jn-primary); }
+  .tab-content { background: white; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 16px 16px; }
+  .form-control, .form-select { border-radius: 10px; border: 1px solid #e2e8f0; }
+  .form-control:focus, .form-select:focus { border-color: var(--jn-primary); box-shadow: 0 0 0 3px rgba(239,81,52,.15); }
+  .btn-theme { background: var(--jn-primary); border: none; border-radius: 10px; font-weight: 600; padding: 0.65rem 1.5rem; color: white; transition: all 0.2s; }
+  .btn-theme:hover { background: var(--jn-primary-600); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,81,52,0.3); color: white; }
+  .btn-theme:disabled { opacity: 0.6; transform: none; }
+  .spinner-border-sm { width: 1rem; height: 1rem; border-width: 2px; }
+  .status-alert { border-radius: 10px; }
+  .plan-item { cursor: pointer; transition: background 0.15s; }
+  .plan-item:hover { background: #f8fafc; }
+  .plan-item.selected { background: #fff5f2; }
+  .network-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: #f1f5f9; border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.85rem; font-weight: 600; }
+  .offcanvas-user { background: #0b1220; color: white; }
+  .offcanvas-user .nav-link { color: rgba(255,255,255,0.8) !important; padding: 0.75rem 1rem; border-radius: 8px; }
+  .offcanvas-user .nav-link:hover { color: white !important; background: rgba(255,255,255,0.1); }
   @media (max-width: 768px) {
-    .balance-amount {
-      font-size: 2rem;
-    }
-    
-    .btn {
-      padding: 0.6rem 1rem;
-      font-size: 0.9rem;
-    }
-    
-    #dataPlanMenu {
-      max-width: 100%;
-      min-width: 100%;
-    }
+    .balance-amount { font-size: 2rem; }
+    .nav-tabs .nav-link { padding: 0.65rem 0.75rem; font-size: 0.85rem; }
   }
-  
-  /* Animation */
-  @keyframes slideIn {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-  
-  .card {
-    animation: slideIn 0.3s ease-out;
-  }
+  /* Quick action tiles */
+  .quick-tile { cursor: pointer; transition: all 0.2s; }
+  .quick-tile:hover { transform: translateY(-3px); }
+  .quick-tile .card { border: 2px solid transparent; }
+  .quick-tile:hover .card { border-color: var(--jn-primary); }
 </style>
 
-<!-- ===== NAVBAR ===== -->
+<!-- NAVBAR -->
 <nav class="navbar navbar-expand-lg sticky-top">
   <div class="container">
     <a class="navbar-brand" href="/"><span>Moz</span>Aic</a>
-    <button class="navbar-toggler text-light" type="button" data-bs-toggle="offcanvas" data-bs-target="#userMenu" aria-controls="userMenu" aria-label="Open menu">
+    <button class="navbar-toggler text-light" type="button" data-bs-toggle="offcanvas" data-bs-target="#userMenu" aria-label="Open menu">
       <span class="navbar-toggler-icon"></span>
     </button>
-
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="#services">Services</a></li>
+        <li class="nav-item"><a class="nav-link active" href="/dashboard/user">Dashboard</a></li>
         <li class="nav-item"><a class="nav-link" href="/dashboard/history">History</a></li>
+        <li class="nav-item"><a class="nav-link" href="/dashboard/beneficiaries">Saved</a></li>
         <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
       </ul>
       <div class="d-none d-lg-flex align-items-center gap-2">
@@ -554,19 +172,17 @@ const transactionStatusClass = (status) => {
           <span id="navBalance"><%= formatNaira(walletBalance) %></span>
         </span>
         <div class="dropdown">
-          <button class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-            <i class="bi bi-person-circle me-1"></i>
-            <span id="navUser"><%= displayName %></span>
+          <button class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle me-1"></i> <%= displayName %>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="/dashboard/settings"><i class="bi bi-gear me-2"></i>Profile & Settings</a></li>
-            <li><a class="dropdown-item" href="/dashboard/beneficiaries"><i class="bi bi-people me-2"></i>Beneficiaries</a></li>
+            <li><a class="dropdown-item" href="/dashboard/settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
             <li><a class="dropdown-item" href="/dashboard/referrals"><i class="bi bi-gift me-2"></i>Referrals</a></li>
             <li><hr class="dropdown-divider"></li>
             <li>
               <form method="POST" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Logout</button>
+                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Logout</button>
               </form>
             </li>
           </ul>
@@ -576,49 +192,36 @@ const transactionStatusClass = (status) => {
   </div>
 </nav>
 
-<!-- OFFCANVAS -->
-<div class="offcanvas offcanvas-end offcanvas-user" tabindex="-1" id="userMenu" aria-labelledby="userMenuLabel">
+<!-- OFFCANVAS MENU -->
+<div class="offcanvas offcanvas-end offcanvas-user" tabindex="-1" id="userMenu">
   <div class="offcanvas-header">
-    <h5 class="offcanvas-title text-white" id="userMenuLabel">Menu</h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    <h5 class="offcanvas-title text-white">Menu</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
   </div>
-  <div class="offcanvas-body d-flex flex-column gap-3">
-    <div class="d-flex align-items-center gap-2 p-3 bg-white bg-opacity-10 rounded-3">
+  <div class="offcanvas-body d-flex flex-column gap-2">
+    <div class="d-flex align-items-center gap-2 p-3 bg-white bg-opacity-10 rounded-3 mb-2">
       <i class="bi bi-wallet2 fs-4"></i>
       <div>
         <div class="small text-white-50">Balance</div>
-        <strong class="fs-5 text-white" id="navBalanceMobile"><%= formatNaira(walletBalance) %></strong>
+        <strong class="fs-5 text-white"><%= formatNaira(walletBalance) %></strong>
       </div>
     </div>
-    
-    <a class="btn btn-theme w-100" data-bs-toggle="modal" data-bs-target="#fundModal">
+    <button class="btn btn-theme w-100" data-bs-toggle="modal" data-bs-target="#fundModal" data-bs-dismiss="offcanvas">
       <i class="bi bi-plus-circle me-1"></i> Fund Wallet
-    </a>
-    <a class="btn btn-outline-light w-100" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+    </button>
+    <button class="btn btn-outline-light w-100" data-bs-toggle="modal" data-bs-target="#withdrawModal" data-bs-dismiss="offcanvas">
       <i class="bi bi-arrow-down-circle me-1"></i> Withdraw
-    </a>
-    
-    <% if (debugMode) { %>
-    <a class="btn btn-warning w-100" href="/dashboard/debug/wallet" target="_blank">
-      <i class="bi bi-bug me-1"></i> Debug Wallet
-    </a>
-    <% } %>
-    
+    </button>
     <hr class="border-white-50">
-    
-    <a class="nav-link" href="/"><i class="bi bi-house me-2"></i> Home</a>
-    <a class="nav-link" href="#services"><i class="bi bi-grid me-2"></i> Services</a>
-    <a class="nav-link" href="/dashboard/history"><i class="bi bi-clock-history me-2"></i> History</a>
-    <a class="nav-link" href="/dashboard/beneficiaries"><i class="bi bi-people me-2"></i> Beneficiaries</a>
-    <a class="nav-link" href="/dashboard/referrals"><i class="bi bi-gift me-2"></i> Referrals</a>
-    <a class="nav-link" href="/dashboard/settings"><i class="bi bi-gear me-2"></i> Settings</a>
-    <a class="nav-link" href="/support"><i class="bi bi-question-circle me-2"></i> Support</a>
-    
+    <a class="nav-link" href="/dashboard/user"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+    <a class="nav-link" href="/dashboard/history"><i class="bi bi-clock-history me-2"></i>History</a>
+    <a class="nav-link" href="/dashboard/beneficiaries"><i class="bi bi-people me-2"></i>Beneficiaries</a>
+    <a class="nav-link" href="/dashboard/referrals"><i class="bi bi-gift me-2"></i>Referrals</a>
+    <a class="nav-link" href="/dashboard/settings"><i class="bi bi-gear me-2"></i>Settings</a>
+    <a class="nav-link" href="/support"><i class="bi bi-question-circle me-2"></i>Support</a>
     <form method="POST" action="/auth/logout" class="mt-auto">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button type="submit" class="btn btn-light w-100">
-        <i class="bi bi-box-arrow-right me-1"></i> Logout
-      </button>
+      <button type="submit" class="btn btn-light w-100"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
     </form>
   </div>
 </div>
@@ -628,28 +231,17 @@ const transactionStatusClass = (status) => {
   <div class="container">
     <div class="row align-items-center g-3">
       <div class="col-lg-8">
-        <h1 class="fw-bold mb-1">Welcome back, <span id="welcomeName"><%= displayName %></span> 👋</h1>
-        <p class="lead mb-0 opacity-75">Manage wallet, buy data & airtime, pay bills, and track every transaction — all in one place.</p>
-        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-          <span class="badge-soft bg-white bg-opacity-20 text-white">Verified</span>
-          <span class="badge-soft bg-white bg-opacity-20 text-white">Secure</span>
-          <% if (debugMode) { %>
-          <span class="badge bg-warning text-dark">Test Mode</span>
-          <% } else { %>
-          <span class="badge bg-success">Live Mode</span>
-          <% } %>
-          <% if (walletStatus !== 'active') { %>
-          <span class="badge bg-danger">Wallet: <%= walletStatus %></span>
-          <% } %>
+        <h1 class="fw-bold mb-1">Welcome back, <%= displayName %> 👋</h1>
+        <p class="lead mb-0 opacity-75">Buy data, airtime, pay bills — all from your wallet.</p>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <span class="badge bg-white bg-opacity-20 text-white">Secure</span>
+          <% if (debugMode) { %><span class="badge bg-warning text-dark">Test Mode</span><% } else { %><span class="badge bg-success">Live Mode</span><% } %>
+          <% if (walletStatus !== 'active') { %><span class="badge bg-danger">Wallet: <%= walletStatus %></span><% } %>
         </div>
       </div>
       <div class="col-lg-4 text-lg-end">
-        <a href="/dashboard/history" class="btn btn-outline-light me-2">
-          <i class="bi bi-clock-history me-1"></i> History
-        </a>
-        <button class="btn btn-theme" data-bs-toggle="modal" data-bs-target="#fundModal">
-          <i class="bi bi-plus-circle me-1"></i> Fund
-        </button>
+        <a href="/dashboard/history" class="btn btn-outline-light me-2"><i class="bi bi-clock-history me-1"></i>History</a>
+        <button class="btn btn-theme" data-bs-toggle="modal" data-bs-target="#fundModal"><i class="bi bi-plus-circle me-1"></i>Fund Wallet</button>
       </div>
     </div>
   </div>
@@ -659,168 +251,131 @@ const transactionStatusClass = (status) => {
 <div class="container mt-3">
   <% if (successMsg) { %>
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-      <i class="bi bi-check-circle-fill me-2"></i>
-      <%= successMsg %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <i class="bi bi-check-circle-fill me-2"></i><%= successMsg %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
-  
   <% if (errorMsg) { %>
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      <%= errorMsg %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <i class="bi bi-exclamation-triangle-fill me-2"></i><%= errorMsg %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
-  
   <% if (flwDebugMode) { %>
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      <strong>Flutterwave API Key Missing:</strong> Add FLW_SECRET_KEY and FLW_PUBLIC_KEY to your .env file to enable real payments.
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Flutterwave keys missing</strong> — payments run in test mode.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
-  
-  <% if (vtpassDebugMode) { %>
-    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      <strong>VTPass API Key Missing:</strong> Add VTPASS_API_KEY and VTPASS_SECRET_KEY to your .env file for live bill payments.
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-  <% } %>
-  
   <% if (walletStatus !== 'active') { %>
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      <strong>Wallet Issue:</strong> Your wallet is <%= walletStatus %>. Some features may be limited.
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>Your wallet is <strong><%= walletStatus %></strong>. Contact support.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
 </div>
 
-<!-- CONTENT -->
-<main class="section py-4">
+<!-- MAIN CONTENT -->
+<main class="py-4">
   <div class="container">
     <div class="row g-4">
+
       <!-- LEFT COLUMN -->
       <div class="col-lg-8">
-        <!-- Wallet Card -->
+
+        <!-- WALLET CARD -->
         <div class="card p-4 mb-4">
           <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
             <div>
               <div class="small text-muted mb-1">Wallet Balance</div>
               <div class="balance-amount" id="bigBalance"><%= formatNaira(walletBalance) %></div>
-              <div class="d-flex flex-wrap gap-3 mt-3">
-                <span class="small text-muted">
-                  <i class="bi bi-hash"></i> ID: <span class="fw-semibold" id="walletId"><%= walletDisplayId %></span>
-                </span>
-                <span class="small text-muted">
-                  <i class="bi bi-shield-check"></i> Tier: <span class="fw-semibold" id="tier"><%= wallet.tier || 'Basic' %></span>
-                </span>
-                <span class="small text-muted">
-                  <i class="bi bi-cone-striped"></i> Mode: <span class="fw-semibold" id="mode"><%= debugMode ? 'Test' : 'Live' %></span>
-                </span>
-                <span class="small text-muted">
-                  <i class="bi bi-wallet2"></i> Status: 
-                  <span class="fw-semibold <%= walletStatus === 'active' ? 'text-success' : 'text-danger' %>" id="walletStatus">
-                    <%= walletStatus %>
-                  </span>
+              <div class="d-flex flex-wrap gap-3 mt-2">
+                <span class="small text-muted"><i class="bi bi-hash"></i> <%= walletDisplayId %></span>
+                <span class="small text-muted"><i class="bi bi-shield-check"></i> Tier: <%= wallet.tier || 'Basic' %></span>
+                <span class="small <%= walletStatus === 'active' ? 'text-success' : 'text-danger' %>">
+                  <i class="bi bi-circle-fill" style="font-size:0.5rem;vertical-align:middle;"></i> <%= walletStatus %>
                 </span>
               </div>
             </div>
             <div class="d-flex flex-wrap gap-2">
               <button class="btn btn-theme" data-bs-toggle="modal" data-bs-target="#fundModal">
-                <i class="bi bi-plus-circle me-1"></i> Fund
+                <i class="bi bi-plus-circle me-1"></i>Fund
               </button>
               <button class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#withdrawModal">
-                <i class="bi bi-arrow-down-circle me-1"></i> Withdraw
+                <i class="bi bi-arrow-down-circle me-1"></i>Withdraw
               </button>
-              <a href="#beneficiaries" class="btn btn-outline-dark">
-                <i class="bi bi-people me-1"></i> Beneficiaries
+              <a href="/dashboard/requery" class="btn btn-outline-dark">
+                <i class="bi bi-arrow-repeat me-1"></i>Requery
               </a>
             </div>
           </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- QUICK ACTION TILES -->
         <div class="row g-3 mb-4">
-          <div class="col-6 col-sm-3">
-            <div class="card">
-              <a href="#airtime" class="text-decoration-none text-dark">
-                <div class="p-3 text-center">
-                  <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4f1.svg" alt="Airtime" width="40" height="40">
-                  <div class="small mt-2 fw-semibold">Airtime</div>
-                </div>
-              </a>
+          <div class="col-6 col-sm-3 quick-tile" onclick="switchTab('airtime-tab')">
+            <div class="card p-3 text-center">
+              <div class="fs-1 mb-1">📱</div>
+              <div class="small fw-semibold">Airtime</div>
             </div>
           </div>
-          <div class="col-6 col-sm-3">
-            <div class="card">
-              <a href="#data" class="text-decoration-none text-dark">
-                <div class="p-3 text-center">
-                  <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4f6.svg" alt="Data" width="40" height="40">
-                  <div class="small mt-2 fw-semibold">Data</div>
-                </div>
-              </a>
+          <div class="col-6 col-sm-3 quick-tile" onclick="switchTab('data-tab')">
+            <div class="card p-3 text-center">
+              <div class="fs-1 mb-1">📶</div>
+              <div class="small fw-semibold">Data</div>
             </div>
           </div>
-          <div class="col-6 col-sm-3">
-            <div class="card">
-              <a href="#electricity" class="text-decoration-none text-dark">
-                <div class="p-3 text-center">
-                  <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/26a1.svg" alt="Electricity" width="40" height="40">
-                  <div class="small mt-2 fw-semibold">Electricity</div>
-                </div>
-              </a>
+          <div class="col-6 col-sm-3 quick-tile" onclick="switchTab('electricity-tab')">
+            <div class="card p-3 text-center">
+              <div class="fs-1 mb-1">⚡</div>
+              <div class="small fw-semibold">Electricity</div>
             </div>
           </div>
-          <div class="col-6 col-sm-3">
-            <div class="card">
-              <a href="#tv" class="text-decoration-none text-dark">
-                <div class="p-3 text-center">
-                  <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4fa.svg" alt="Cable TV" width="40" height="40">
-                  <div class="small mt-2 fw-semibold">Cable TV</div>
-                </div>
-              </a>
+          <div class="col-6 col-sm-3 quick-tile" onclick="switchTab('tv-tab')">
+            <div class="card p-3 text-center">
+              <div class="fs-1 mb-1">📺</div>
+              <div class="small fw-semibold">Cable TV</div>
             </div>
           </div>
         </div>
 
-        <!-- Services Tabs -->
+        <!-- SERVICES TABS -->
         <div id="services">
           <ul class="nav nav-tabs" id="serviceTabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="airtime-tab" data-bs-toggle="tab" data-bs-target="#airtime" type="button" role="tab">
-                <i class="bi bi-phone-fill me-1"></i> Airtime
+              <button class="nav-link active" id="airtime-tab" data-bs-toggle="tab" data-bs-target="#airtime" type="button">
+                <i class="bi bi-phone-fill me-1"></i>Airtime
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
-                <i class="bi bi-wifi me-1"></i> Data
+              <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button">
+                <i class="bi bi-wifi me-1"></i>Data
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="electricity-tab" data-bs-toggle="tab" data-bs-target="#electricity" type="button" role="tab">
-                <i class="bi bi-plug me-1"></i> Electricity
+              <button class="nav-link" id="electricity-tab" data-bs-toggle="tab" data-bs-target="#electricity" type="button">
+                <i class="bi bi-plug me-1"></i>Electricity
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tv-tab" data-bs-toggle="tab" data-bs-target="#tv" type="button" role="tab">
-                <i class="bi bi-tv me-1"></i> Cable TV
+              <button class="nav-link" id="tv-tab" data-bs-toggle="tab" data-bs-target="#tv" type="button">
+                <i class="bi bi-tv me-1"></i>Cable TV
               </button>
             </li>
           </ul>
 
           <div class="tab-content p-4">
-            <!-- Airtime Tab -->
+
+            <!-- ===== AIRTIME TAB ===== -->
             <div class="tab-pane fade show active" id="airtime" role="tabpanel">
-              <form class="row g-3 needs-validation" novalidate id="airtimeForm" action="/api/bills/airtime" method="post">
+              <h6 class="fw-bold mb-3 text-muted">Buy Airtime</h6>
+              <form class="row g-3 needs-validation" novalidate id="airtimeForm">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Network</label>
                   <select class="form-select" name="network" required>
-                    <option value="">Choose...</option>
+                    <option value="">Choose network...</option>
                     <option value="mtn">MTN</option>
                     <option value="glo">GLO</option>
                     <option value="airtel">Airtel</option>
@@ -828,321 +383,299 @@ const transactionStatusClass = (status) => {
                   </select>
                   <div class="invalid-feedback">Select a network.</div>
                 </div>
-                
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Phone number</label>
-                  <input type="tel" class="form-control" placeholder="0801 234 5678" name="phone" inputmode="tel" required>
-                  <div class="invalid-feedback">Enter a valid number.</div>
-                </div>
-                
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Amount (₦)</label>
-                  <input type="number" min="50" step="50" class="form-control" name="amount" required>
-                  <div class="invalid-feedback">Enter amount (≥ ₦50).</div>
-                </div>
-                
-                <div class="col-12">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="saveAirtimeBeneficiary" name="saveBeneficiary" value="1">
-                    <label class="form-check-label" for="saveAirtimeBeneficiary">
-                      Save as beneficiary
-                    </label>
-                  </div>
-                </div>
-                
-                <div class="col-12">
-                  <button class="btn btn-theme" type="submit">
-                    <i class="bi bi-lightning-charge me-1"></i> Buy Airtime
-                  </button>
-                </div>
-                
-                <div class="col-12">
-                  <div class="alert alert-info status-alert" id="airtimeStatusAlert" role="alert" style="display: none;">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <span id="airtimeStatusMessage"></span>
-                  </div>
-                </div>
-              </form>
-            </div>
 
-            <!-- Data Tab -->
-            <div class="tab-pane fade" id="data" role="tabpanel">
-              <form class="row g-3 needs-validation" novalidate id="dataForm" action="/api/bills/data" method="post">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                
                 <div class="col-md-4">
-                  <label class="form-label fw-semibold">Network</label>
-                  <select class="form-select" name="network" required id="dataNetworkSelect">
-                    <option value="">Choose...</option>
-                    <option value="mtn">MTN</option>
-                    <option value="glo">GLO</option>
-                    <option value="airtel">Airtel</option>
-                    <option value="9mobile">9mobile</option>
-                  </select>
-                  <div class="invalid-feedback">Select a network.</div>
-                </div>
-                
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Phone number</label>
+                  <label class="form-label fw-semibold">Phone Number</label>
                   <input type="tel" class="form-control" name="phone" placeholder="0801 234 5678" inputmode="tel" required>
                   <div class="invalid-feedback">Enter a valid number.</div>
                 </div>
-                
+
                 <div class="col-md-4">
-                  <label class="form-label fw-semibold">Data Plan</label>
-                  <button class="btn btn-outline-dark w-100 text-start d-flex align-items-center justify-content-between" type="button" id="dataPlanButton" data-bs-toggle="dropdown" aria-expanded="false" disabled>
-                    <span><i class="bi bi-wifi me-2"></i>Select network first</span>
-                    <i class="bi bi-chevron-down"></i>
-                  </button>
-                  <ul class="dropdown-menu w-100" id="dataPlanMenu" aria-labelledby="dataPlanButton">
-                    <li><span class="dropdown-item-text text-muted">Select network first</span></li>
-                  </ul>
-                  <input type="hidden" name="planCode" id="dataPlanValue" required>
-                  <div class="invalid-feedback">Choose a plan.</div>
+                  <label class="form-label fw-semibold">Amount (₦)</label>
+                  <input type="number" min="50" step="50" class="form-control" name="amount" placeholder="e.g. 500" required>
+                  <div class="invalid-feedback">Minimum ₦50.</div>
                 </div>
-                
+
                 <div class="col-12">
                   <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="saveDataBeneficiary" name="saveBeneficiary" value="1">
-                    <label class="form-check-label" for="saveDataBeneficiary">
-                      Save as beneficiary
-                    </label>
+                    <input class="form-check-input" type="checkbox" id="saveAirtimeBen" name="saveBeneficiary" value="1">
+                    <label class="form-check-label small" for="saveAirtimeBen">Save as beneficiary</label>
                   </div>
                 </div>
-                
+
                 <div class="col-12">
-                  <button class="btn btn-theme" type="submit">
-                    <i class="bi bi-wifi me-1"></i> Buy Data
+                  <button class="btn btn-theme" type="submit" id="airtimeSubmitBtn">
+                    <i class="bi bi-lightning-charge me-1"></i>Buy Airtime
                   </button>
                 </div>
-                
+
                 <div class="col-12">
-                  <div class="alert alert-info status-alert" id="dataStatusAlert" role="alert" style="display: none;">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <span id="dataStatusMessage"></span>
-                  </div>
+                  <div class="alert status-alert" id="airtimeAlert" style="display:none;" role="alert"></div>
                 </div>
               </form>
             </div>
 
-            <!-- Electricity Tab -->
-            <div class="tab-pane fade" id="electricity" role="tabpanel">
-              <form class="row g-3 needs-validation" novalidate id="electricityForm" action="/api/bills/electricity" method="post">
+            <!-- ===== DATA TAB ===== -->
+            <div class="tab-pane fade" id="data" role="tabpanel">
+              <h6 class="fw-bold mb-3 text-muted">Buy Data Bundle</h6>
+              <form class="row g-3 needs-validation" novalidate id="dataForm">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                
+                <input type="hidden" name="planCode" id="dataPlanCode">
+                <input type="hidden" name="amount" id="dataPlanAmount">
+
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Network</label>
+                  <select class="form-select" name="network" id="dataNetwork" required>
+                    <option value="">Choose network...</option>
+                    <option value="mtn">MTN</option>
+                    <option value="glo">GLO</option>
+                    <option value="airtel">Airtel</option>
+                    <option value="9mobile">9mobile</option>
+                  </select>
+                  <div class="invalid-feedback">Select a network.</div>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Phone Number</label>
+                  <input type="tel" class="form-control" name="phone" placeholder="0801 234 5678" inputmode="tel" required>
+                  <div class="invalid-feedback">Enter a valid number.</div>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Data Plan</label>
+                  <div class="dropdown">
+                    <button class="btn btn-outline-dark w-100 text-start d-flex justify-content-between align-items-center"
+                            type="button" id="dataPlanBtn" data-bs-toggle="dropdown" disabled>
+                      <span id="dataPlanLabel"><i class="bi bi-wifi me-2 text-muted"></i>Select network first</span>
+                      <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="dropdown-menu w-100" id="dataPlanMenu" style="max-height:320px;overflow-y:auto;"></ul>
+                  </div>
+                  <div class="invalid-feedback d-block" id="dataPlanError" style="display:none!important;"></div>
+                </div>
+
+                <div class="col-12">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="saveDataBen" name="saveBeneficiary" value="1">
+                    <label class="form-check-label small" for="saveDataBen">Save as beneficiary</label>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <button class="btn btn-theme" type="submit" id="dataSubmitBtn">
+                    <i class="bi bi-wifi me-1"></i>Buy Data
+                  </button>
+                </div>
+
+                <div class="col-12">
+                  <div class="alert status-alert" id="dataAlert" style="display:none;" role="alert"></div>
+                </div>
+              </form>
+            </div>
+
+            <!-- ===== ELECTRICITY TAB ===== -->
+            <div class="tab-pane fade" id="electricity" role="tabpanel">
+              <h6 class="fw-bold mb-3 text-muted">Pay Electricity Bill</h6>
+              <form class="row g-3 needs-validation" novalidate id="electricityForm">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Distribution Company</label>
-                  <select class="form-select" name="disco" required>
-                    <option value="">Choose...</option>
-                    <option value="aedc">Abuja (AEDC)</option>
+                  <select class="form-select" name="disco" id="discoSelect" required>
+                    <option value="">Choose DISCO...</option>
+                    <option value="aedc">Abuja Electric (AEDC)</option>
                     <option value="ikedc">Ikeja Electric (IKEDC)</option>
                     <option value="ekedc">Eko Electric (EKEDC)</option>
-                    <option value="kedco">Kano (KEDCO)</option>
+                    <option value="kedco">Kano Electric (KEDCO)</option>
                     <option value="phed">Port Harcourt (PHED)</option>
-                    <option value="ibedc">Ibadan (IBEDC)</option>
-                    <option value="eedc">Enugu (EEDC)</option>
-                    <option value="jed">Jos (JED)</option>
+                    <option value="ibedc">Ibadan Electric (IBEDC)</option>
+                    <option value="eedc">Enugu Electric (EEDC)</option>
+                    <option value="jed">Jos Electric (JED)</option>
                   </select>
-                  <div class="invalid-feedback">Select a distribution company.</div>
+                  <div class="invalid-feedback">Select a DISCO.</div>
                 </div>
-                
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Meter Number</label>
-                  <input type="text" class="form-control" name="meterNo" placeholder="Enter meter number" required>
-                  <div class="invalid-feedback">Enter a valid meter number.</div>
+                  <div class="input-group">
+                    <input type="text" class="form-control" name="meterNo" id="meterNo" placeholder="Enter meter number" required>
+                    <button class="btn btn-outline-secondary" type="button" id="verifyMeterBtn" title="Verify meter">
+                      <i class="bi bi-check-circle"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback">Enter meter number.</div>
+                  <div class="mt-1" id="meterCustomerInfo" style="display:none;">
+                    <span class="badge-soft badge-soft-success"><i class="bi bi-person-check me-1"></i><span id="meterCustomerName"></span></span>
+                  </div>
                 </div>
-                
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Meter Type</label>
                   <select class="form-select" name="meterType" required>
-                    <option value="">Choose...</option>
+                    <option value="">Choose type...</option>
                     <option value="prepaid">Prepaid</option>
                     <option value="postpaid">Postpaid</option>
                   </select>
                   <div class="invalid-feedback">Select meter type.</div>
                 </div>
-                
+
                 <div class="col-md-6">
                   <label class="form-label fw-semibold">Amount (₦)</label>
-                  <input type="number" min="100" step="50" class="form-control" name="amount" required>
-                  <div class="invalid-feedback">Enter amount (≥ ₦100).</div>
+                  <input type="number" min="100" step="50" class="form-control" name="amount" placeholder="Minimum ₦100" required>
+                  <div class="invalid-feedback">Minimum ₦100.</div>
                 </div>
-                
+
                 <div class="col-md-6">
                   <label class="form-label fw-semibold">Phone (Optional)</label>
-                  <input type="tel" class="form-control" name="phone" placeholder="0801 234 5678">
+                  <input type="tel" class="form-control" name="phone" placeholder="For receipt SMS">
                 </div>
-                
+
                 <div class="col-12">
-                  <button class="btn btn-theme" type="submit">
-                    <i class="bi bi-lightning me-1"></i> Pay Electricity Bill
+                  <button class="btn btn-theme" type="submit" id="electricitySubmitBtn">
+                    <i class="bi bi-lightning me-1"></i>Pay Electricity Bill
                   </button>
                 </div>
-                
+
                 <div class="col-12">
-                  <div class="alert alert-info status-alert" id="electricityStatusAlert" role="alert" style="display: none;">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <span id="electricityStatusMessage"></span>
-                  </div>
+                  <div class="alert status-alert" id="electricityAlert" style="display:none;" role="alert"></div>
                 </div>
               </form>
             </div>
 
-            <!-- TV Tab -->
+            <!-- ===== TV TAB ===== -->
             <div class="tab-pane fade" id="tv" role="tabpanel">
-              <form class="row g-3 needs-validation" novalidate id="tvForm" action="/api/bills/tv" method="post">
+              <h6 class="fw-bold mb-3 text-muted">Pay Cable TV Subscription</h6>
+              <form class="row g-3 needs-validation" novalidate id="tvForm">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                
+                <input type="hidden" name="package" id="tvPackageCode">
+                <input type="hidden" name="amount" id="tvPackageAmount">
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Provider</label>
-                  <select class="form-select" name="provider" required id="tvProviderSelect">
-                    <option value="">Choose...</option>
+                  <select class="form-select" name="provider" id="tvProvider" required>
+                    <option value="">Choose provider...</option>
                     <option value="dstv">DStv</option>
                     <option value="gotv">GOtv</option>
                     <option value="startimes">Startimes</option>
                   </select>
-                  <div class="invalid-feedback">Select provider.</div>
+                  <div class="invalid-feedback">Select a provider.</div>
                 </div>
-                
+
                 <div class="col-md-4">
                   <label class="form-label fw-semibold">Smartcard / IUC Number</label>
-                  <input type="text" class="form-control" name="card" id="tvSmartcardInput" placeholder="Enter smartcard number" required>
-                  <div class="invalid-feedback">Enter a valid smartcard number.</div>
-                </div>
-                
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Package</label>
                   <div class="input-group">
-                    <select class="form-select" name="package" required id="tvPackageSelect" disabled>
-                      <option value="">Verify smartcard first</option>
-                    </select>
-                    <button class="btn btn-outline-primary" type="button" id="verifySmartcardBtn">
+                    <input type="text" class="form-control" name="card" id="tvSmartcard" placeholder="Enter smartcard number" required>
+                    <button class="btn btn-outline-secondary" type="button" id="verifySmartcardBtn">
                       <i class="bi bi-check-circle"></i> Verify
                     </button>
                   </div>
-                  <div class="invalid-feedback">Select a package.</div>
-                  
-                  <!-- Customer info display -->
-                  <div class="alert alert-success mt-2" id="tvCustomerInfo" style="display: none;">
-                    <i class="bi bi-person-circle me-2"></i>
-                    <span id="customerNameText">Customer</span>
+                  <div class="invalid-feedback">Enter smartcard number.</div>
+                  <div class="mt-1" id="tvCustomerInfo" style="display:none;">
+                    <span class="badge-soft badge-soft-success"><i class="bi bi-person-check me-1"></i><span id="tvCustomerName"></span></span>
                   </div>
                 </div>
-                
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Amount (₦)</label>
-                  <input type="number" class="form-control" name="amount" id="tvAmountInput" readonly required>
-                  <div class="invalid-feedback">Amount will auto-fill after package selection.</div>
+
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Package</label>
+                  <select class="form-select" name="package_select" id="tvPackageSelect" disabled required>
+                    <option value="">Verify smartcard first</option>
+                  </select>
+                  <div class="invalid-feedback">Select a package.</div>
+                  <div class="small text-muted mt-1" id="tvAmountDisplay" style="display:none;">
+                    Amount: <strong id="tvAmountText"></strong>
+                  </div>
                 </div>
-                
+
                 <div class="col-md-6">
                   <label class="form-label fw-semibold">Phone (Optional)</label>
-                  <input type="tel" class="form-control" name="phone" placeholder="0801 234 5678">
+                  <input type="tel" class="form-control" name="phone" placeholder="For receipt SMS">
                 </div>
-                
-                <div class="col-12 d-flex gap-2 flex-wrap">
-                  <button class="btn btn-theme" type="submit" id="tvSubmitBtn" disabled>
-                    <i class="bi bi-tv me-1"></i> Renew Subscription
-                  </button>
-                  <button class="btn btn-outline-primary" type="button" id="refreshTvPackages">
-                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-                  </button>
-                  <button class="btn btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#tvPackagesModal">
-                    <i class="bi bi-grid me-1"></i> View All Packages
-                  </button>
-                </div>
-                
-                <div class="col-12">
-                  <div class="alert alert-info status-alert" id="tvStatusAlert" role="alert" style="display: none;">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <span id="tvStatusMessage"></span>
+
+                <div class="col-md-6 d-flex align-items-end">
+                  <div class="alert alert-info mb-0 w-100 small" id="tvPackageInfo" style="display:none;">
+                    <i class="bi bi-info-circle me-1"></i><span id="tvPackageInfoText"></span>
                   </div>
+                </div>
+
+                <div class="col-12">
+                  <button class="btn btn-theme" type="submit" id="tvSubmitBtn" disabled>
+                    <i class="bi bi-tv me-1"></i>Renew Subscription
+                  </button>
+                  <small class="text-muted ms-3" id="tvVerifyHint">Verify smartcard to continue</small>
+                </div>
+
+                <div class="col-12">
+                  <div class="alert status-alert" id="tvAlert" style="display:none;" role="alert"></div>
                 </div>
               </form>
             </div>
-          </div>
-        </div>
-      </div>
+
+          </div><!-- end tab-content -->
+        </div><!-- end #services -->
+
+      </div><!-- end col-lg-8 -->
 
       <!-- RIGHT COLUMN -->
       <div class="col-lg-4">
         <!-- Mini KPIs -->
-        <div class="row g-3">
+        <div class="row g-3 mb-3">
           <div class="col-12">
-            <div class="card p-3">
+            <div class="card p-3" style="border-left:4px solid var(--jn-primary);">
               <div class="d-flex justify-content-between align-items-center">
                 <div>
                   <div class="text-muted small">Today's Spend</div>
-                  <div class="h4 mb-0 fw-bold" id="kpiToday"><%= formatNaira(todayTotal) %></div>
+                  <div class="h4 mb-0 fw-bold"><%= formatNaira(todayTotal) %></div>
                 </div>
                 <i class="bi bi-graph-up-arrow fs-2 text-primary opacity-25"></i>
               </div>
             </div>
           </div>
-          
           <div class="col-12">
             <div class="card p-3">
               <div class="d-flex justify-content-between align-items-center">
                 <div>
-                  <div class="text-muted small">Total Transactions</div>
-                  <div class="h4 mb-0 fw-bold" id="kpiTx"><%= kpiTx %></div>
+                  <div class="text-muted small">Transactions</div>
+                  <div class="h4 mb-0 fw-bold"><%= kpiTx %></div>
                 </div>
-                <i class="bi bi-receipt fs-2 text-success opacity-25"></i>
-              </div>
-            </div>
-          </div>
-          
-          <div class="col-12">
-            <div class="card p-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <div class="text-muted small">KYC Status</div>
-                  <div class="h5 mb-0">
-                    <span class="badge-soft <%= user.kycStatus === 'verified' ? 'badge-soft-success' : 'badge-soft-warning' %>">
-                      <%= user.kycStatus || 'Not Started' %>
-                    </span>
-                  </div>
-                </div>
-                <a href="/dashboard/verify" class="btn btn-sm btn-outline-primary">Verify</a>
+                <a href="/dashboard/history" class="btn btn-sm btn-outline-primary">View all</a>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Recent Activity -->
-        <div class="card mt-3">
+        <div class="card">
           <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <strong>Recent Activity</strong>
-            <a href="/dashboard/history" class="small text-decoration-none">View all</a>
+            <strong class="small">Recent Activity</strong>
+            <a href="/dashboard/history" class="small text-decoration-none">See all</a>
           </div>
           <div class="list-group list-group-flush">
             <% if (!transactions || transactions.length === 0) { %>
               <div class="list-group-item text-center py-4 text-muted">
                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                No recent transactions
+                <small>No transactions yet</small>
               </div>
-            <% } else { 
-              // Safely iterate over transactions with for loop
-              const recentTransactions = transactions.slice(0, 5);
-              for (let i = 0; i < recentTransactions.length; i++) {
-                const t = recentTransactions[i];
-                const type = transactionType(t);
-                const details = transactionDetails(t);
+            <% } else {
+              const recent = transactions.slice(0, 6);
+              for (let i = 0; i < recent.length; i++) {
+                const t = recent[i];
                 const amt = amountNaira(t);
-                const cls = amt < 0 ? 'text-danger' : 'text-success';
-                const sign = amt < 0 ? '-' : '';
+                const isCredit = t.type === 'credit' || amt > 0;
             %>
-              <div class="list-group-item">
+              <div class="list-group-item py-2 px-3">
                 <div class="d-flex justify-content-between align-items-start">
-                  <div>
-                    <div class="fw-semibold"><%= type %></div>
-                    <small class="text-muted d-block"><%= details %></small>
-                    <small class="text-muted"><%= transactionCreated(t) %></small>
+                  <div class="me-2" style="min-width:0;">
+                    <div class="fw-semibold small text-truncate"><%= transactionType(t) %></div>
+                    <div class="text-muted" style="font-size:0.78rem;" title="<%= transactionDetails(t) %>">
+                      <%= transactionDetails(t).length > 35 ? transactionDetails(t).substring(0, 35) + '…' : transactionDetails(t) %>
+                    </div>
+                    <div class="text-muted" style="font-size:0.75rem;"><%= transactionCreated(t) %></div>
                   </div>
-                  <div class="text-end">
-                    <span class="fw-bold <%= cls %>"><%= sign %><%= formatNaira(Math.abs(amt)) %></span>
-                    <br>
-                    <span class="badge-soft <%= transactionStatusClass(t.status) %>"><%= t.status %></span>
+                  <div class="text-end flex-shrink-0">
+                    <div class="fw-bold small <%= isCredit ? 'text-success' : 'text-danger' %>">
+                      <%= isCredit ? '+' : '-' %><%= formatNaira(Math.abs(amt)) %>
+                    </div>
+                    <span class="badge-soft <%= transactionStatusClass(t.status) %>" style="font-size:0.7rem;"><%= t.status %></span>
                   </div>
                 </div>
               </div>
@@ -1150,72 +683,60 @@ const transactionStatusClass = (status) => {
           </div>
         </div>
 
-        <!-- Support Card -->
-        <div class="card mt-3 bg-primary bg-opacity-10 border-0">
-          <div class="card-body">
-            <div class="d-flex align-items-center gap-3">
-              <i class="bi bi-headset fs-1 text-primary"></i>
-              <div>
-                <h6 class="fw-bold mb-1">Need Help?</h6>
-                <p class="small text-muted mb-2">Our support team is available 24/7</p>
-                <a href="/support" class="btn btn-sm btn-primary">
-                  <i class="bi bi-chat-dots me-1"></i> Contact Support
-                </a>
-              </div>
+        <!-- Support -->
+        <div class="card mt-3 p-3 bg-primary bg-opacity-10 border-0">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-headset fs-2 text-primary"></i>
+            <div>
+              <h6 class="fw-bold mb-1 small">Need Help?</h6>
+              <p class="small text-muted mb-1">Support available 24/7</p>
+              <a href="/support" class="btn btn-sm btn-primary">Contact Support</a>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
+
+    </div><!-- row -->
+  </div><!-- container -->
 </main>
 
-<!-- FUND WALLET MODAL -->
-<div class="modal fade" id="fundModal" tabindex="-1" aria-labelledby="fundModalLabel" aria-hidden="true">
+<!-- ===== FUND WALLET MODAL ===== -->
+<div class="modal fade" id="fundModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="fundModalLabel">
-          <i class="bi bi-plus-circle me-2 text-primary"></i>
-          Fund Wallet
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2 text-primary"></i>Fund Wallet</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="fundForm" class="needs-validation" novalidate method="POST" action="/api/wallet/fund">
+      <form id="fundForm" class="needs-validation" novalidate>
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Amount (₦)</label>
             <div class="input-group">
               <span class="input-group-text">₦</span>
-              <input type="number" class="form-control" name="amount" min="100" step="50" placeholder="Enter amount" required>
+              <input type="number" class="form-control" name="amount" min="100" step="50" placeholder="Minimum ₦100" required>
             </div>
-            <div class="invalid-feedback">Please enter an amount (minimum ₦100).</div>
-            <small class="text-muted">Minimum: ₦100 • Maximum: ₦1,000,000</small>
+            <div class="invalid-feedback">Minimum ₦100.</div>
           </div>
-          
           <div class="mb-3">
             <label class="form-label fw-semibold">Payment Method</label>
             <select class="form-select" name="method" required>
-              <option value="">Choose payment method...</option>
-              <option value="card">💳 Debit/Credit Card</option>
+              <option value="">Choose method...</option>
+              <option value="card">💳 Debit / Credit Card</option>
               <option value="transfer">🏦 Bank Transfer</option>
               <option value="ussd">📱 USSD</option>
             </select>
-            <div class="invalid-feedback">Please select a payment method.</div>
+            <div class="invalid-feedback">Select a payment method.</div>
           </div>
-          
-          <div class="alert alert-info mb-0">
-            <i class="bi bi-info-circle me-2"></i>
-            You'll be redirected to Flutterwave's secure payment page.
+          <div class="alert alert-info mb-0 small">
+            <i class="bi bi-lock me-1"></i>You'll be redirected to Flutterwave's secure payment page.
           </div>
         </div>
-        
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-theme" id="fundSubmitBtn">
-            <i class="bi bi-arrow-right-circle me-1"></i> Continue to Payment
+            <i class="bi bi-arrow-right-circle me-1"></i>Continue to Payment
           </button>
         </div>
       </form>
@@ -1223,34 +744,29 @@ const transactionStatusClass = (status) => {
   </div>
 </div>
 
-<!-- WITHDRAW MODAL -->
-<div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true">
+<!-- ===== WITHDRAW MODAL ===== -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="withdrawModalLabel">
-          <i class="bi bi-arrow-down-circle me-2 text-primary"></i>
-          Withdraw Funds
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title"><i class="bi bi-arrow-down-circle me-2 text-primary"></i>Withdraw Funds</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="withdrawForm" class="needs-validation" novalidate method="POST" action="/api/wallet/withdraw">
+      <form id="withdrawForm" class="needs-validation" novalidate>
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Amount (₦)</label>
             <div class="input-group">
               <span class="input-group-text">₦</span>
-              <input type="number" class="form-control" name="amount" min="100" step="50" placeholder="Enter amount" required>
+              <input type="number" class="form-control" name="amount" min="100" placeholder="Minimum ₦100" required>
             </div>
-            <div class="invalid-feedback">Please enter a valid amount (minimum ₦100).</div>
-            <small class="text-muted">Available balance: <%= formatNaira(walletBalance) %></small>
+            <div class="invalid-feedback">Minimum ₦100.</div>
+            <small class="text-muted">Available: <%= formatNaira(walletBalance) %></small>
           </div>
-          
           <div class="mb-3">
-            <label class="form-label fw-semibold">Bank Name</label>
-            <select class="form-select" name="bank" required id="bankSelect">
+            <label class="form-label fw-semibold">Bank</label>
+            <select class="form-select" name="bank" id="withdrawBankSelect" required>
               <option value="">Select bank...</option>
               <option value="Access Bank">Access Bank</option>
               <option value="Fidelity Bank">Fidelity Bank</option>
@@ -1259,38 +775,32 @@ const transactionStatusClass = (status) => {
               <option value="UBA">UBA</option>
               <option value="Union Bank">Union Bank</option>
               <option value="Zenith Bank">Zenith Bank</option>
-              <option value="Other">Other (specify)</option>
+              <option value="Other">Other...</option>
             </select>
-            <div class="invalid-feedback">Please select a bank.</div>
+            <div class="invalid-feedback">Select a bank.</div>
           </div>
-          
-          <div class="mb-3" id="otherBankField" style="display: none;">
-            <label class="form-label fw-semibold">Enter Bank Name</label>
-            <input type="text" class="form-control" name="otherBank" placeholder="Enter bank name">
+          <div class="mb-3" id="otherBankField" style="display:none;">
+            <label class="form-label fw-semibold">Bank Name</label>
+            <input type="text" class="form-control" id="otherBankInput" placeholder="Enter bank name">
           </div>
-          
           <div class="mb-3">
             <label class="form-label fw-semibold">Account Number</label>
-            <input type="text" class="form-control" name="account" minlength="10" maxlength="10" pattern="\d{10}" placeholder="Enter 10-digit account number" required>
-            <div class="invalid-feedback">Please enter a valid 10-digit account number.</div>
+            <input type="text" class="form-control" name="account" minlength="10" maxlength="10" pattern="\d{10}" placeholder="10-digit account number" required>
+            <div class="invalid-feedback">Enter a valid 10-digit account number.</div>
           </div>
-          
           <div class="mb-3">
             <label class="form-label fw-semibold">Account Name</label>
-            <input type="text" class="form-control" name="accountName" placeholder="Enter account name" required>
-            <div class="invalid-feedback">Please enter the account name.</div>
+            <input type="text" class="form-control" name="account_name" placeholder="Account holder name" required>
+            <div class="invalid-feedback">Enter account name.</div>
           </div>
-          
-          <div class="alert alert-warning mb-0">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            Withdrawals are processed within 1-2 business days.
+          <div class="alert alert-warning mb-0 small">
+            <i class="bi bi-clock me-1"></i>Withdrawals process within 1–2 business days.
           </div>
         </div>
-        
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-theme" id="withdrawSubmitBtn">
-            <i class="bi bi-send me-1"></i> Request Withdrawal
+            <i class="bi bi-send me-1"></i>Request Withdrawal
           </button>
         </div>
       </form>
@@ -1298,909 +808,533 @@ const transactionStatusClass = (status) => {
   </div>
 </div>
 
-<!-- TV PACKAGES MODAL -->
-<div class="modal fade" id="tvPackagesModal" tabindex="-1" aria-labelledby="tvPackagesModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+<!-- ===== CONFIRM MODAL ===== -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="tvPackagesModalLabel">
-          <i class="bi bi-grid me-2 text-primary"></i>
-          Available TV Packages
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title"><i class="bi bi-check-circle me-2 text-primary"></i>Confirm Purchase</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <!-- Customer Info -->
-        <div class="alert alert-success" id="modalCustomerInfo" style="display: none;">
-          <div class="d-flex align-items-center">
-            <i class="bi bi-person-circle fs-4 me-3"></i>
-            <div>
-              <strong id="modalCustomerName">Customer Name</strong>
-              <br>
-              <small>Smartcard: <span id="modalSmartcardNumber">0000000000</span></small>
-            </div>
-          </div>
+        <div class="card bg-light border-0 p-3 mb-3">
+          <dl class="row mb-0 small" id="confirmDetails"></dl>
         </div>
-        
-        <!-- Packages Grid -->
-        <div class="package-grid" id="tvPackagesGrid">
-          <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading packages...</span>
-            </div>
-            <p class="mt-3 text-muted">Loading available packages...</p>
-          </div>
+        <div class="alert alert-warning mb-0 small">
+          <i class="bi bi-exclamation-triangle me-1"></i>This action cannot be undone.
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="selectPackageBtn" disabled>
-          <i class="bi bi-check-circle me-1"></i> Select Package
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-theme" id="confirmProceedBtn">
+          <i class="bi bi-check-lg me-1"></i>Confirm & Pay
         </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- TOAST NOTIFICATION -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
-  <div id="toast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+<!-- TOAST -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+  <div id="mainToast" class="toast align-items-center border-0" role="alert" aria-atomic="true">
     <div class="d-flex">
-      <div class="toast-body" id="toastBody"></div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      <div class="toast-body fw-semibold" id="mainToastBody"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>
   </div>
 </div>
 
-<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-(function() {
-  'use strict';
-  
-  // ==================== UTILITIES ====================
-  const log = (...args) => console.log('[Dashboard]', ...args);
-  
-  function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast');
-    const toastBody = document.getElementById('toastBody');
-    
-    if (!toast || !toastBody) return;
-    
-    toastBody.textContent = message;
-    toast.className = `toast align-items-center border-0 text-bg-${type}`;
-    
-    const bsToast = new bootstrap.Toast(toast, {
-      autohide: true,
-      delay: 5000
-    });
-    bsToast.show();
+'use strict';
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+const CSRF = '<%= csrfToken %>';
+
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('mainToast');
+  const body  = document.getElementById('mainToastBody');
+  body.textContent = msg;
+  toast.className = `toast align-items-center border-0 text-bg-${type}`;
+  bootstrap.Toast.getOrCreateInstance(toast, { delay: 5000 }).show();
+}
+
+function formatNaira(n) {
+  return '₦' + Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function updateBalanceUI(newBal) {
+  ['bigBalance', 'navBalance'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = formatNaira(newBal);
+  });
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s || '');
+  return d.innerHTML;
+}
+
+function setAlert(elId, msg, type = 'danger') {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.className = `alert alert-${type} status-alert`;
+  el.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : type === 'info' ? 'info-circle' : 'exclamation-triangle'}-fill me-2"></i>${escapeHtml(msg)}`;
+  el.style.display = 'block';
+}
+
+function clearAlert(elId) {
+  const el = document.getElementById(elId);
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
+}
+
+function setLoading(btn, loading, originalHTML) {
+  if (loading) {
+    btn.disabled = true;
+    btn.dataset.orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML || btn.dataset.orig || btn.innerHTML;
   }
-  
-  function formatNaira(amount) {
-    return '₦' + Number(amount).toLocaleString('en-NG', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-  
-  function parseNaira(text) {
-    return parseFloat(String(text).replace(/[^\d.-]/g, '')) || 0;
-  }
-  
-  function updateBalance(newBalance) {
-    const ids = ['bigBalance', 'navBalance', 'navBalanceMobile'];
-    for (let i = 0; i < ids.length; i++) {
-      const el = document.getElementById(ids[i]);
-      if (el) {
-        el.textContent = formatNaira(newBalance);
-      }
-    }
-  }
-  
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  
-  async function handleResponse(response) {
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
-    }
-    const text = await response.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { ok: false, error: text };
-    }
-  }
-  
-  // ==================== TV PACKAGES ====================
-  let currentTvPackages = [];
-  let selectedPackage = null;
-  
-  async function loadTvPackages(provider, smartcard, showInModal = false) {
-    const pkgSelect = document.getElementById('tvPackageSelect');
-    const amountInput = document.getElementById('tvAmountInput');
-    const submitBtn = document.getElementById('tvSubmitBtn');
-    const statusAlert = document.getElementById('tvStatusAlert');
-    const statusMessage = document.getElementById('tvStatusMessage');
-    const customerInfo = document.getElementById('tvCustomerInfo');
-    const customerName = document.getElementById('customerNameText');
-    const verifyBtn = document.getElementById('verifySmartcardBtn');
-    
-    if (showInModal) {
-      const packagesGrid = document.getElementById('tvPackagesGrid');
-      packagesGrid.innerHTML = `
-        <div class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading packages...</span>
-          </div>
-          <p class="mt-3 text-muted">Loading available packages...</p>
-        </div>
-      `;
+}
+
+function switchTab(tabId) {
+  const tab = document.getElementById(tabId);
+  if (tab) bootstrap.Tab.getOrCreateInstance(tab).show();
+  document.getElementById('services')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Generic POST to API
+async function apiPost(endpoint, data) {
+  data['_csrf'] = CSRF;
+  const fd = new FormData();
+  Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+  const res = await fetch(endpoint, { method: 'POST', body: fd, credentials: 'same-origin' });
+  const json = await res.json().catch(() => ({ ok: false, error: `Server error (${res.status})` }));
+  return { ok: res.ok && (json.ok !== false), data: json, status: res.status };
+}
+
+async function apiGet(endpoint) {
+  const res = await fetch(endpoint, { credentials: 'same-origin' });
+  const json = await res.json().catch(() => ({ ok: false, error: `Server error (${res.status})` }));
+  return { ok: res.ok, data: json, status: res.status };
+}
+
+// ─── Fund Wallet ──────────────────────────────────────────────────────────────
+document.getElementById('fundForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+  const btn = document.getElementById('fundSubmitBtn');
+  setLoading(btn, true);
+  try {
+    const fd = new FormData(this);
+    fd.append('_csrf', CSRF);
+    const res = await fetch('/api/wallet/fund', { method: 'POST', body: fd, credentials: 'same-origin' });
+    const data = await res.json();
+    if (data.ok && data.link) {
+      showToast('Redirecting to payment gateway…', 'info');
+      setTimeout(() => { window.location.href = data.link; }, 800);
     } else {
-      if (statusAlert && statusMessage) {
-        statusAlert.style.display = 'block';
-        statusAlert.className = 'alert alert-info';
-        statusMessage.textContent = 'Verifying smartcard...';
-      }
-      
-      if (verifyBtn) {
-        verifyBtn.disabled = true;
-        verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Verifying';
-      }
+      throw new Error(data.error || 'Failed to create payment link');
     }
-    
-    try {
-      const response = await fetch(`/api/bills/tv/packages?provider=${encodeURIComponent(provider)}&smartcard=${encodeURIComponent(smartcard)}`, {
-        credentials: 'same-origin'
-      });
-      
-      const data = await handleResponse(response);
-      
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Failed to load packages');
-      }
-      
-      currentTvPackages = data.packages || [];
-      
-      // Update customer info
-      if (data.customerName) {
-        if (!showInModal) {
-          customerName.textContent = data.customerName;
-          customerInfo.style.display = 'block';
-        }
-        
-        // Update modal customer info
-        const modalCustomerInfo = document.getElementById('modalCustomerInfo');
-        const modalCustomerName = document.getElementById('modalCustomerName');
-        const modalSmartcard = document.getElementById('modalSmartcardNumber');
-        
-        if (modalCustomerInfo && modalCustomerName && modalSmartcard) {
-          modalCustomerName.textContent = data.customerName;
-          modalSmartcard.textContent = smartcard;
-          modalCustomerInfo.style.display = 'block';
-        }
-      }
-      
-      if (showInModal) {
-        displayPackagesInModal(currentTvPackages);
-      } else {
-        updatePackageSelect(currentTvPackages);
-      }
-      
-      if (!showInModal) {
-        pkgSelect.disabled = false;
-        submitBtn.disabled = currentTvPackages.length === 0;
-        
-        if (currentTvPackages.length > 0) {
-          if (pkgSelect.options.length > 1) {
-            pkgSelect.value = currentTvPackages[0].code;
-            amountInput.value = currentTvPackages[0].amount;
-          }
-          
-          statusMessage.textContent = `Found ${currentTvPackages.length} packages`;
-          statusAlert.className = 'alert alert-success';
-        } else {
-          statusMessage.textContent = 'No packages available';
-          statusAlert.className = 'alert alert-warning';
-        }
-      }
-      
-      if (verifyBtn) {
-        verifyBtn.disabled = false;
-        verifyBtn.innerHTML = '<i class="bi bi-check-circle"></i> Verified';
-        verifyBtn.className = 'btn btn-success';
-      }
-      
-    } catch (error) {
-      console.error('TV packages error:', error);
-      
-      if (showInModal) {
-        const grid = document.getElementById('tvPackagesGrid');
-        if (grid) {
-          grid.innerHTML = `
-            <div class="text-center py-5">
-              <i class="bi bi-exclamation-circle text-danger fs-1 mb-3"></i>
-              <p class="text-danger">${escapeHtml(error.message)}</p>
-              <button class="btn btn-outline-primary" onclick="location.reload()">Try Again</button>
-            </div>
-          `;
-        }
-      } else {
-        if (statusAlert && statusMessage) {
-          statusMessage.textContent = error.message;
-          statusAlert.className = 'alert alert-danger';
-        }
-        
-        if (verifyBtn) {
-          verifyBtn.disabled = false;
-          verifyBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error';
-          verifyBtn.className = 'btn btn-danger';
-        }
-      }
-    }
+  } catch (err) {
+    showToast(err.message, 'danger');
+    setLoading(btn, false);
   }
-  
-  function displayPackagesInModal(packages) {
-    const grid = document.getElementById('tvPackagesGrid');
-    const selectBtn = document.getElementById('selectPackageBtn');
-    
-    if (!grid) return;
-    
-    if (!packages || packages.length === 0) {
-      grid.innerHTML = `
-        <div class="text-center py-5">
-          <i class="bi bi-info-circle text-muted fs-1 mb-3"></i>
-          <p class="text-muted">No packages available</p>
-        </div>
-      `;
-      if (selectBtn) selectBtn.disabled = true;
+});
+
+// ─── Withdraw ─────────────────────────────────────────────────────────────────
+document.getElementById('withdrawBankSelect').addEventListener('change', function() {
+  const other = document.getElementById('otherBankField');
+  other.style.display = this.value === 'Other' ? 'block' : 'none';
+});
+
+document.getElementById('withdrawForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+  const btn = document.getElementById('withdrawSubmitBtn');
+  setLoading(btn, true);
+  try {
+    const bankSel = document.getElementById('withdrawBankSelect');
+    const bank = bankSel.value === 'Other' ? document.getElementById('otherBankInput').value : bankSel.value;
+    if (!bank) { showToast('Please enter a bank name', 'warning'); setLoading(btn, false); return; }
+
+    const fd = new FormData(this);
+    fd.set('bank', bank);
+    fd.append('_csrf', CSRF);
+    const res = await fetch('/api/wallet/withdraw', { method: 'POST', body: fd, credentials: 'same-origin' });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Withdrawal request submitted!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('withdrawModal'))?.hide();
+      this.reset(); this.classList.remove('was-validated');
+      if (data.new_balance !== undefined) updateBalanceUI(data.new_balance);
+    } else {
+      throw new Error(data.error || 'Withdrawal failed');
+    }
+  } catch (err) {
+    showToast(err.message, 'danger');
+  }
+  setLoading(btn, false);
+});
+
+// ─── AIRTIME ──────────────────────────────────────────────────────────────────
+document.getElementById('airtimeForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  clearAlert('airtimeAlert');
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+
+  const btn = document.getElementById('airtimeSubmitBtn');
+  const data = {
+    network:       this.network.value,
+    phone:         this.phone.value,
+    amount:        this.amount.value,
+    saveBeneficiary: this.saveBeneficiary?.checked ? '1' : '0',
+    confirm:       '1'
+  };
+
+  setLoading(btn, true);
+  try {
+    // POST to correct endpoint: /api/bill/airtime (singular)
+    const result = await apiPost('/api/bill/airtime', data);
+    if (!result.ok) throw new Error(result.data.error || 'Airtime purchase failed');
+
+    showToast(`Airtime sent to ${data.phone} ✅`, 'success');
+    setAlert('airtimeAlert', `Airtime purchase successful! Reference: ${result.data.ref || ''}`, 'success');
+    if (result.data.new_balance !== undefined) updateBalanceUI(result.data.new_balance);
+    this.reset(); this.classList.remove('was-validated');
+    setTimeout(() => location.reload(), 2500);
+  } catch (err) {
+    showToast(err.message, 'danger');
+    setAlert('airtimeAlert', err.message);
+  }
+  setLoading(btn, false);
+});
+
+// ─── DATA PLANS ───────────────────────────────────────────────────────────────
+let selectedPlan = null;
+
+document.getElementById('dataNetwork').addEventListener('change', async function() {
+  const net = this.value;
+  const btn = document.getElementById('dataPlanBtn');
+  const menu = document.getElementById('dataPlanMenu');
+  const label = document.getElementById('dataPlanLabel');
+
+  if (!net) {
+    btn.disabled = true;
+    label.innerHTML = '<i class="bi bi-wifi me-2 text-muted"></i>Select network first';
+    menu.innerHTML = '';
+    selectedPlan = null;
+    document.getElementById('dataPlanCode').value = '';
+    return;
+  }
+
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading plans…';
+  menu.innerHTML = '<li><span class="dropdown-item-text text-muted small">Loading…</span></li>';
+  selectedPlan = null;
+  document.getElementById('dataPlanCode').value = '';
+
+  try {
+    // GET correct endpoint: /api/bill/data/plans (singular)
+    const res = await apiGet(`/api/bill/data/plans?network=${encodeURIComponent(net)}`);
+    let plans = res.data;
+
+    // The endpoint returns either an array directly or wrapped in plans/content
+    if (!Array.isArray(plans)) {
+      plans = plans.plans || plans.content?.variations || plans.data || [];
+    }
+
+    if (!plans.length) {
+      menu.innerHTML = '<li><span class="dropdown-item-text text-muted small">No plans available</span></li>';
+      label.innerHTML = '<i class="bi bi-wifi me-2 text-muted"></i>No plans found';
+      btn.disabled = true;
       return;
     }
-    
-    grid.innerHTML = '';
-    selectedPackage = null;
-    if (selectBtn) selectBtn.disabled = true;
-    
-    for (let i = 0; i < packages.length; i++) {
-      const pkg = packages[i];
-      const div = document.createElement('div');
-      div.className = 'package-item';
-      div.dataset.code = pkg.code;
-      div.dataset.amount = pkg.amount;
-      div.dataset.label = pkg.label;
-      
-      div.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <h6 class="fw-bold mb-0">${escapeHtml(pkg.label)}</h6>
-          <span class="fw-bold text-success">${formatNaira(pkg.amount)}</span>
-        </div>
-        <div class="small text-muted mb-2">Code: ${escapeHtml(pkg.code)}</div>
-        <button class="btn btn-outline-primary btn-sm w-100 select-package-btn">
-          <i class="bi bi-check-circle me-1"></i> Select
-        </button>
-      `;
-      
-      grid.appendChild(div);
-    }
-    
-    // Add click handlers
-    const items = document.querySelectorAll('.package-item');
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      item.addEventListener('click', function(e) {
-        if (!e.target.closest('.select-package-btn')) {
-          selectPackageInModal(item.dataset.code);
-        }
+
+    menu.innerHTML = '';
+    plans.forEach(plan => {
+      const code   = plan.code || plan.variation_code;
+      const planLbl = plan.label || plan.name || code;
+      const amount = plan.amount || plan.variation_amount || 0;
+
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <a class="dropdown-item plan-item d-flex justify-content-between align-items-center py-2 px-3" href="#" data-code="${escapeHtml(code)}" data-amount="${amount}">
+          <span class="small fw-semibold">${escapeHtml(planLbl)}</span>
+          <span class="text-success fw-bold small">${formatNaira(amount)}</span>
+        </a>`;
+
+      li.querySelector('a').addEventListener('click', function(ev) {
+        ev.preventDefault();
+        selectedPlan = { code, label: planLbl, amount };
+        document.getElementById('dataPlanCode').value = code;
+        document.getElementById('dataPlanAmount').value = amount;
+        label.innerHTML = `<i class="bi bi-check-circle-fill text-success me-2"></i>${escapeHtml(planLbl)} — ${formatNaira(amount)}`;
+        menu.querySelectorAll('.plan-item').forEach(i => i.classList.remove('selected'));
+        this.classList.add('selected');
       });
-    }
-    
-    const btns = document.querySelectorAll('.select-package-btn');
-    for (let i = 0; i < btns.length; i++) {
-      const btn = btns[i];
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const code = btn.closest('.package-item').dataset.code;
-        selectPackageInModal(code);
-      });
-    }
-  }
-  
-  function selectPackageInModal(code) {
-    const items = document.querySelectorAll('.package-item');
-    for (let i = 0; i < items.length; i++) {
-      items[i].classList.remove('selected');
-    }
-    
-    const selected = document.querySelector(`.package-item[data-code="${code}"]`);
-    if (selected) {
-      selected.classList.add('selected');
-      for (let i = 0; i < currentTvPackages.length; i++) {
-        if (currentTvPackages[i].code === code) {
-          selectedPackage = currentTvPackages[i];
-          break;
-        }
-      }
-      const selectBtn = document.getElementById('selectPackageBtn');
-      if (selectBtn) selectBtn.disabled = false;
-    }
-  }
-  
-  function updatePackageSelect(packages) {
-    const select = document.getElementById('tvPackageSelect');
-    const amountInput = document.getElementById('tvAmountInput');
-    
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">Select a package</option>';
-    
-    for (let i = 0; i < packages.length; i++) {
-      const pkg = packages[i];
-      const option = document.createElement('option');
-      option.value = pkg.code;
-      option.textContent = `${pkg.label} - ${formatNaira(pkg.amount)}`;
-      option.dataset.amount = pkg.amount;
-      select.appendChild(option);
-    }
-    
-    // Remove existing listener and add new one
-    select.removeEventListener('change', handlePackageChange);
-    select.addEventListener('change', handlePackageChange);
-  }
-  
-  function handlePackageChange() {
-    const select = document.getElementById('tvPackageSelect');
-    const amountInput = document.getElementById('tvAmountInput');
-    const selected = select.options[select.selectedIndex];
-    if (selected && selected.dataset.amount) {
-      amountInput.value = selected.dataset.amount;
-    }
-  }
-  
-  // ==================== DATA PLANS ====================
-  async function loadDataPlans(network) {
-    const btn = document.getElementById('dataPlanButton');
-    const menu = document.getElementById('dataPlanMenu');
-    const hidden = document.getElementById('dataPlanValue');
-    
-    if (!btn || !menu) return;
-    
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Loading...';
-    btn.disabled = true;
-    
-    try {
-      const response = await fetch(`/api/bills/data/plans?network=${encodeURIComponent(network)}`, {
-        credentials: 'same-origin'
-      });
-      
-      const plans = await handleResponse(response);
-      
-      if (!Array.isArray(plans) || plans.length === 0) {
-        throw new Error('No plans available');
-      }
-      
-      menu.innerHTML = '';
-      
-      for (let i = 0; i < plans.length; i++) {
-        const plan = plans[i];
-        const item = document.createElement('li');
-        item.innerHTML = `
-          <a class="dropdown-item plan-item d-flex align-items-center gap-3" href="#" data-code="${plan.code}" data-amount="${plan.amount}">
-            <div class="network-icon">
-              <i class="bi bi-wifi ${network === 'mtn' ? 'text-success' : network === 'glo' ? 'text-danger' : 'text-primary'}"></i>
-            </div>
-            <div class="flex-grow-1">
-              <div class="fw-semibold">${escapeHtml(plan.label)}</div>
-              <small class="text-muted">Code: ${plan.code}</small>
-            </div>
-            <div class="fw-bold text-success">${formatNaira(plan.amount)}</div>
-          </a>
-        `;
-        
-        const link = item.querySelector('a');
-        link.addEventListener('click', function(e) {
-          e.preventDefault();
-          
-          const activeItems = document.querySelectorAll('#dataPlanMenu .plan-item');
-          for (let j = 0; j < activeItems.length; j++) {
-            activeItems[j].classList.remove('active');
-          }
-          link.classList.add('active');
-          
-          if (hidden) hidden.value = plan.code;
-          btn.innerHTML = `
-            <span class="network-icon-sm me-2">
-              <i class="bi bi-wifi"></i>
-            </span>
-            <span>${escapeHtml(plan.label)} - ${formatNaira(plan.amount)}</span>
-          `;
-          btn.disabled = false;
-        });
-        
-        menu.appendChild(item);
-        
-        if (i < plans.length - 1) {
-          menu.appendChild(document.createElement('hr')).className = 'dropdown-divider';
-        }
-      }
-      
-      btn.innerHTML = 'Select Data Plan';
-      btn.disabled = false;
-      
-    } catch (error) {
-      console.error('Load data plans error:', error);
-      menu.innerHTML = `
-        <li><span class="dropdown-item-text text-danger">${escapeHtml(error.message)}</span></li>
-      `;
-      btn.innerHTML = 'Select Data Plan';
-      btn.disabled = false;
-    }
-  }
-  
-  // ==================== FORM SUBMISSION ====================
-  async function submitForm(form, endpoint, formName) {
-    if (!form.checkValidity()) {
-      form.classList.add('was-validated');
-      return false;
-    }
-    
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    const statusAlert = form.querySelector('.status-alert');
-    const statusMessage = form.querySelector('.status-alert span');
-    
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
-    
-    if (statusAlert) {
-      statusAlert.style.display = 'block';
-      statusAlert.className = 'alert alert-info';
-      if (statusMessage) statusMessage.textContent = 'Processing your request...';
-    }
-    
-    try {
-      const formData = new FormData(form);
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-        credentials: 'same-origin'
-      });
-      
-      const data = await handleResponse(response);
-      
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Request failed');
-      }
-      
-      // Check if confirmation needed
-      if (data.preview) {
-        showConfirmationModal(data, form, endpoint, formName);
-        return;
-      }
-      
-      // Success
-      showToast(`${formName} successful!`, 'success');
-      
-      if (data.new_balance) {
-        updateBalance(data.new_balance);
-      }
-      
-      // Reset form
-      form.reset();
-      form.classList.remove('was-validated');
-      
-      if (statusAlert) {
-        statusAlert.className = 'alert alert-success';
-        if (statusMessage) statusMessage.textContent = 'Transaction completed successfully!';
-      }
-      
-      // Reload page after 2 seconds to show updated data
-      setTimeout(function() { location.reload(); }, 2000);
-      
-    } catch (error) {
-      console.error(`${formName} error:`, error);
-      
-      if (statusAlert) {
-        statusAlert.className = 'alert alert-danger';
-        if (statusMessage) statusMessage.textContent = error.message;
-      }
-      
-      showToast(error.message, 'danger');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    }
-  }
-  
-  function showConfirmationModal(data, form, endpoint, formName) {
-    // Create modal dynamically
-    const modalHtml = `
-      <div class="modal fade" id="confirmationModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Confirm ${formName} Purchase</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>
-                ${escapeHtml(data.message || `Confirm ${formName} purchase`)}
-              </div>
-              
-              <div class="card bg-light">
-                <div class="card-body">
-                  <h6 class="card-title">Transaction Details</h6>
-                  <dl class="row mb-0">
-                    ${data.network ? `
-                      <dt class="col-sm-4">Network</dt>
-                      <dd class="col-sm-8">${escapeHtml(data.network)}</dd>
-                    ` : ''}
-                    ${data.phone ? `
-                      <dt class="col-sm-4">Phone</dt>
-                      <dd class="col-sm-8">${escapeHtml(data.phone)}</dd>
-                    ` : ''}
-                    ${data.smartcard ? `
-                      <dt class="col-sm-4">Smartcard</dt>
-                      <dd class="col-sm-8">${escapeHtml(data.smartcard)}</dd>
-                    ` : ''}
-                    ${data.plan ? `
-                      <dt class="col-sm-4">Plan</dt>
-                      <dd class="col-sm-8">${escapeHtml(data.plan)}</dd>
-                    ` : ''}
-                    ${data.amount ? `
-                      <dt class="col-sm-4">Amount</dt>
-                      <dd class="col-sm-8 fw-bold text-success">${formatNaira(data.amount)}</dd>
-                    ` : ''}
-                  </dl>
-                </div>
-              </div>
-              
-              <div class="alert alert-warning mt-3 mb-0">
-                <i class="bi bi-exclamation-triangle me-2"></i>
-                This action cannot be undone.
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" id="confirmBtn">Confirm Purchase</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    // Remove existing modal if any
-    const existing = document.getElementById('confirmationModal');
-    if (existing) existing.remove();
-    
-    // Add modal to DOM
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-    modal.show();
-    
-    document.getElementById('confirmBtn').addEventListener('click', async function() {
-      modal.hide();
-      
-      const formData = new FormData(form);
-      formData.append('confirm', 'true');
-      
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        });
-        
-        const data = await handleResponse(response);
-        
-        if (data.error) throw new Error(data.error);
-        
-        showToast(`${formName} successful!`, 'success');
-        
-        if (data.new_balance) {
-          updateBalance(data.new_balance);
-        }
-        
-        form.reset();
-        form.classList.remove('was-validated');
-        
-        setTimeout(function() { location.reload(); }, 2000);
-        
-      } catch (error) {
-        console.error('Confirmation error:', error);
-        showToast(error.message, 'danger');
-      }
+
+      menu.appendChild(li);
     });
+
+    btn.disabled = false;
+    label.innerHTML = `<i class="bi bi-wifi me-2 text-primary"></i>${plans.length} plans available`;
+  } catch (err) {
+    menu.innerHTML = `<li><span class="dropdown-item-text text-danger small">${escapeHtml(err.message)}</span></li>`;
+    label.innerHTML = '<i class="bi bi-exclamation-triangle me-2 text-danger"></i>Failed to load plans';
+    btn.disabled = false;
   }
-  
-  // ==================== WALLET FUNDING ====================
-  function wireFundForm() {
-    const form = document.getElementById('fundForm');
-    if (!form) return;
-    
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      if (!form.checkValidity()) {
-        form.classList.add('was-validated');
-        return;
-      }
-      
-      const submitBtn = document.getElementById('fundSubmitBtn');
-      const originalText = submitBtn.innerHTML;
-      
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
-      
-      try {
-        const formData = new FormData(form);
-        const response = await fetch(form.action, {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        });
-        
-        const data = await handleResponse(response);
-        
-        if (data.error) throw new Error(data.error);
-        
-        if (data.link) {
-          showToast('Redirecting to payment gateway...', 'info');
-          setTimeout(function() {
-            window.location.href = data.link;
-          }, 1000);
-        } else {
-          throw new Error('No payment link received');
-        }
-        
-      } catch (error) {
-        console.error('Fund wallet error:', error);
-        showToast(error.message, 'danger');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-      }
-    });
+});
+
+document.getElementById('dataForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  clearAlert('dataAlert');
+
+  if (!selectedPlan) {
+    showToast('Please select a data plan', 'warning');
+    return;
   }
-  
-  // ==================== WITHDRAWAL ====================
-  function wireWithdrawForm() {
-    const form = document.getElementById('withdrawForm');
-    const bankSelect = document.getElementById('bankSelect');
-    const otherBankField = document.getElementById('otherBankField');
-    
-    if (bankSelect) {
-      bankSelect.addEventListener('change', function() {
-        if (bankSelect.value === 'Other') {
-          otherBankField.style.display = 'block';
-        } else {
-          otherBankField.style.display = 'none';
-        }
-      });
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+
+  const btn = document.getElementById('dataSubmitBtn');
+  const payload = {
+    network:  this.network.value,
+    phone:    this.phone.value,
+    planCode: selectedPlan.code,
+    amount:   selectedPlan.amount,
+    saveBeneficiary: this.saveBeneficiary?.checked ? '1' : '0',
+    confirm:  '1'
+  };
+
+  setLoading(btn, true);
+  try {
+    // POST to correct endpoint: /api/bill/data (singular)
+    const result = await apiPost('/api/bill/data', payload);
+    if (!result.ok) throw new Error(result.data.error || 'Data purchase failed');
+
+    showToast(`Data bundle sent to ${payload.phone} ✅`, 'success');
+    setAlert('dataAlert', `Data purchase successful! Reference: ${result.data.ref || ''}`, 'success');
+    if (result.data.new_balance !== undefined) updateBalanceUI(result.data.new_balance);
+    this.reset(); this.classList.remove('was-validated');
+    selectedPlan = null;
+    document.getElementById('dataPlanBtn').disabled = true;
+    document.getElementById('dataPlanLabel').innerHTML = '<i class="bi bi-wifi me-2 text-muted"></i>Select network first';
+    setTimeout(() => location.reload(), 2500);
+  } catch (err) {
+    showToast(err.message, 'danger');
+    setAlert('dataAlert', err.message);
+  }
+  setLoading(btn, false);
+});
+
+// ─── ELECTRICITY ──────────────────────────────────────────────────────────────
+document.getElementById('verifyMeterBtn').addEventListener('click', async function() {
+  const disco  = document.getElementById('discoSelect').value;
+  const meterNo = document.getElementById('meterNo').value.trim();
+
+  if (!disco) { showToast('Select a DISCO first', 'warning'); return; }
+  if (!meterNo) { showToast('Enter a meter number', 'warning'); return; }
+
+  const btn = this;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  try {
+    // GET /api/bill/verify (singular)
+    const res = await apiGet(`/api/bill/verify?provider=${encodeURIComponent(disco)}&number=${encodeURIComponent(meterNo)}&type=prepaid`);
+    if (res.ok && res.data.ok && res.data.customerName) {
+      document.getElementById('meterCustomerName').textContent = res.data.customerName;
+      document.getElementById('meterCustomerInfo').style.display = 'block';
+      showToast(`Meter verified: ${res.data.customerName}`, 'success');
+    } else {
+      document.getElementById('meterCustomerInfo').style.display = 'none';
+      showToast(res.data.error || 'Could not verify meter — double-check and try again', 'warning');
     }
-    
-    if (!form) return;
-    
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      if (!form.checkValidity()) {
-        form.classList.add('was-validated');
-        return;
-      }
-      
-      const submitBtn = document.getElementById('withdrawSubmitBtn');
-      const originalText = submitBtn.innerHTML;
-      
-      // Handle other bank
-      if (bankSelect.value === 'Other') {
-        const otherBank = form.querySelector('[name="otherBank"]').value;
-        if (!otherBank) {
-          showToast('Please enter bank name', 'danger');
-          return;
-        }
-        form.querySelector('[name="bank"]').value = otherBank;
-      }
-      
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
-      
-      try {
-        const formData = new FormData(form);
-        const response = await fetch(form.action, {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        });
-        
-        const data = await handleResponse(response);
-        
-        if (data.error) throw new Error(data.error);
-        
-        showToast('Withdrawal request submitted!', 'success');
-        
-        // Close modal and reset
-        setTimeout(function() {
-          const modal = bootstrap.Modal.getInstance(document.getElementById('withdrawModal'));
-          if (modal) modal.hide();
-          form.reset();
-          form.classList.remove('was-validated');
-        }, 2000);
-        
-      } catch (error) {
-        console.error('Withdraw error:', error);
-        showToast(error.message, 'danger');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-      }
-    });
+  } catch (err) {
+    showToast('Meter verification failed', 'danger');
   }
-  
-  // ==================== INITIALIZATION ====================
-  // Wait for DOM to be fully loaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDashboard);
+  btn.disabled = false;
+  btn.innerHTML = orig;
+});
+
+document.getElementById('electricityForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  clearAlert('electricityAlert');
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+
+  const btn = document.getElementById('electricitySubmitBtn');
+  const payload = {
+    disco:     this.disco.value,
+    meterNo:   this.meterNo.value,
+    meterType: this.meterType.value,
+    amount:    this.amount.value,
+    phone:     this.phone.value || '',
+    confirm:   '1'
+  };
+
+  setLoading(btn, true);
+  try {
+    // POST to correct endpoint: /api/bill/electricity (singular)
+    const result = await apiPost('/api/bill/electricity', payload);
+    if (!result.ok) throw new Error(result.data.error || 'Electricity payment failed');
+
+    showToast('Electricity payment successful ✅', 'success');
+    setAlert('electricityAlert', `Payment successful! Reference: ${result.data.ref || ''}`, 'success');
+    if (result.data.new_balance !== undefined) updateBalanceUI(result.data.new_balance);
+    this.reset(); this.classList.remove('was-validated');
+    document.getElementById('meterCustomerInfo').style.display = 'none';
+    setTimeout(() => location.reload(), 2500);
+  } catch (err) {
+    showToast(err.message, 'danger');
+    setAlert('electricityAlert', err.message);
+  }
+  setLoading(btn, false);
+});
+
+// ─── CABLE TV ─────────────────────────────────────────────────────────────────
+document.getElementById('verifySmartcardBtn').addEventListener('click', async function() {
+  const provider   = document.getElementById('tvProvider').value;
+  const smartcard  = document.getElementById('tvSmartcard').value.trim();
+  const pkgSelect  = document.getElementById('tvPackageSelect');
+  const submitBtn  = document.getElementById('tvSubmitBtn');
+  const hint       = document.getElementById('tvVerifyHint');
+  const amtDisplay = document.getElementById('tvAmountDisplay');
+
+  if (!provider) { showToast('Select a provider first', 'warning'); return; }
+  if (!smartcard) { showToast('Enter smartcard number', 'warning'); return; }
+
+  const btn = this;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying…';
+  pkgSelect.innerHTML = '<option value="">Loading packages…</option>';
+  pkgSelect.disabled = true;
+  submitBtn.disabled = true;
+  document.getElementById('tvCustomerInfo').style.display = 'none';
+  amtDisplay.style.display = 'none';
+
+  try {
+    // GET /api/bill/tv/packages (singular)
+    const res = await apiGet(`/api/bill/tv/packages?provider=${encodeURIComponent(provider)}&smartcard=${encodeURIComponent(smartcard)}`);
+
+    if (!res.ok || (!res.data.packages && !res.data.ok)) {
+      throw new Error(res.data.error || 'Failed to load packages');
+    }
+
+    const packages = res.data.packages || [];
+    const customerName = res.data.customerName || '';
+
+    if (customerName) {
+      document.getElementById('tvCustomerName').textContent = customerName;
+      document.getElementById('tvCustomerInfo').style.display = 'block';
+    }
+
+    if (!packages.length) {
+      pkgSelect.innerHTML = '<option value="">No packages available</option>';
+      showToast('No packages found for this provider', 'warning');
+      return;
+    }
+
+    pkgSelect.innerHTML = '<option value="">Select a package…</option>';
+    packages.forEach(pkg => {
+      const code   = pkg.code || pkg.variation_code;
+      const label  = pkg.label || pkg.name || code;
+      const amount = pkg.amount || pkg.variation_amount || 0;
+      const opt = document.createElement('option');
+      opt.value        = code;
+      opt.textContent  = `${label} — ${formatNaira(amount)}`;
+      opt.dataset.amount = amount;
+      pkgSelect.appendChild(opt);
+    });
+
+    pkgSelect.disabled = false;
+    hint.textContent = 'Select a package to continue';
+    showToast(`${packages.length} packages loaded for ${customerName || provider.toUpperCase()}`, 'success');
+
+  } catch (err) {
+    showToast(err.message, 'danger');
+    pkgSelect.innerHTML = '<option value="">Verification failed — try again</option>';
+  }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+});
+
+document.getElementById('tvPackageSelect').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  const code = opt.value;
+  const amount = opt.dataset.amount || 0;
+  const submitBtn = document.getElementById('tvSubmitBtn');
+  const amtDisplay = document.getElementById('tvAmountDisplay');
+  const amtText    = document.getElementById('tvAmountText');
+  const hint       = document.getElementById('tvVerifyHint');
+
+  if (code) {
+    document.getElementById('tvPackageCode').value = code;
+    document.getElementById('tvPackageAmount').value = amount;
+    submitBtn.disabled = false;
+    amtDisplay.style.display = 'block';
+    amtText.textContent = formatNaira(amount);
+    hint.textContent = '';
   } else {
-    initDashboard();
+    document.getElementById('tvPackageCode').value = '';
+    document.getElementById('tvPackageAmount').value = '';
+    submitBtn.disabled = true;
+    amtDisplay.style.display = 'none';
+    hint.textContent = 'Select a package to continue';
   }
-  
-  function initDashboard() {
-    log('Dashboard initialized');
-    
-    // Wire forms
-    wireFundForm();
-    wireWithdrawForm();
-    
-    // Wire bill forms
-    const airtimeForm = document.getElementById('airtimeForm');
-    if (airtimeForm) {
-      airtimeForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitForm(airtimeForm, airtimeForm.action, 'Airtime');
-      });
-    }
-    
-    const dataForm = document.getElementById('dataForm');
-    if (dataForm) {
-      dataForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitForm(dataForm, dataForm.action, 'Data');
-      });
-    }
-    
-    const electricityForm = document.getElementById('electricityForm');
-    if (electricityForm) {
-      electricityForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitForm(electricityForm, electricityForm.action, 'Electricity');
-      });
-    }
-    
-    const tvForm = document.getElementById('tvForm');
-    if (tvForm) {
-      tvForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitForm(tvForm, tvForm.action, 'TV');
-      });
-    }
-    
-    // Data network change
-    const networkSelect = document.getElementById('dataNetworkSelect');
-    if (networkSelect) {
-      networkSelect.addEventListener('change', function() {
-        if (networkSelect.value) {
-          loadDataPlans(networkSelect.value);
-        }
-      });
-    }
-    
-    // TV verification
-    const verifyBtn = document.getElementById('verifySmartcardBtn');
-    const providerSelect = document.getElementById('tvProviderSelect');
-    const smartcardInput = document.getElementById('tvSmartcardInput');
-    
-    if (verifyBtn && providerSelect && smartcardInput) {
-      verifyBtn.addEventListener('click', function() {
-        const provider = providerSelect.value;
-        const smartcard = smartcardInput.value.trim();
-        
-        if (!provider) {
-          showToast('Please select a provider', 'danger');
-          providerSelect.focus();
-          return;
-        }
-        
-        if (!smartcard || smartcard.length < 6) {
-          showToast('Please enter a valid smartcard number', 'danger');
-          smartcardInput.focus();
-          return;
-        }
-        
-        loadTvPackages(provider, smartcard);
-      });
-    }
-    
-    // View all packages button
-    const viewPackagesBtn = document.querySelector('[data-bs-target="#tvPackagesModal"]');
-    if (viewPackagesBtn && providerSelect && smartcardInput) {
-      viewPackagesBtn.addEventListener('click', function() {
-        const provider = providerSelect.value;
-        const smartcard = smartcardInput.value.trim();
-        
-        if (!provider) {
-          showToast('Please select a provider', 'danger');
-          return;
-        }
-        
-        if (!smartcard || smartcard.length < 6) {
-          showToast('Please enter a valid smartcard number', 'danger');
-          return;
-        }
-        
-        loadTvPackages(provider, smartcard, true);
-      });
-    }
-    
-    // Select package button
-    const selectPackageBtn = document.getElementById('selectPackageBtn');
-    if (selectPackageBtn) {
-      selectPackageBtn.addEventListener('click', function() {
-        if (!selectedPackage) {
-          showToast('Please select a package', 'danger');
-          return;
-        }
-        
-        const pkgSelect = document.getElementById('tvPackageSelect');
-        const amountInput = document.getElementById('tvAmountInput');
-        const submitBtn = document.getElementById('tvSubmitBtn');
-        
-        if (pkgSelect) pkgSelect.value = selectedPackage.code;
-        if (amountInput) amountInput.value = selectedPackage.amount;
-        if (submitBtn) submitBtn.disabled = false;
-        
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('tvPackagesModal'));
-        if (modal) modal.hide();
-        
-        showToast(`Selected: ${selectedPackage.label}`, 'success');
-      });
-    }
-    
-    // Smooth scroll to services
-    const actionLinks = document.querySelectorAll('.row.k .card a');
-    for (let i = 0; i < actionLinks.length; i++) {
-      const link = actionLinks[i];
-      link.addEventListener('click', function(e) {
-        e.preventDefault();
-        const targetId = link.getAttribute('href');
-        if (targetId && targetId.startsWith('#')) {
-          const tab = document.querySelector(`[data-bs-target="${targetId}"]`);
-          if (tab) {
-            const bsTab = new bootstrap.Tab(tab);
-            bsTab.show();
-            
-            document.getElementById('services').scrollIntoView({
-              behavior: 'smooth',
-              block: 'start'
-            });
-          }
-        }
-      });
-    }
-    
-    // Clean URL params
-    if (window.location.search.includes('payment_success') || 
-        window.location.search.includes('payment_failed')) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+});
+
+document.getElementById('tvForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  clearAlert('tvAlert');
+
+  const pkgCode = document.getElementById('tvPackageCode').value;
+  const pkgAmount = document.getElementById('tvPackageAmount').value;
+
+  if (!pkgCode) { showToast('Please select a package', 'warning'); return; }
+  if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
+
+  const btn = document.getElementById('tvSubmitBtn');
+  const payload = {
+    provider: this.provider.value,
+    card:     this.card.value,
+    package:  pkgCode,
+    amount:   pkgAmount,
+    phone:    this.phone.value || '',
+    confirm:  '1'
+  };
+
+  setLoading(btn, true);
+  try {
+    // POST to correct endpoint: /api/bill/tv (singular)
+    const result = await apiPost('/api/bill/tv', payload);
+    if (!result.ok) throw new Error(result.data.error || 'TV subscription failed');
+
+    showToast('TV subscription renewed ✅', 'success');
+    setAlert('tvAlert', `Subscription successful! Reference: ${result.data.ref || ''}`, 'success');
+    if (result.data.new_balance !== undefined) updateBalanceUI(result.data.new_balance);
+    this.reset(); this.classList.remove('was-validated');
+    document.getElementById('tvPackageSelect').disabled = true;
+    document.getElementById('tvPackageSelect').innerHTML = '<option value="">Verify smartcard first</option>';
+    document.getElementById('tvSubmitBtn').disabled = true;
+    document.getElementById('tvCustomerInfo').style.display = 'none';
+    document.getElementById('tvAmountDisplay').style.display = 'none';
+    setTimeout(() => location.reload(), 2500);
+  } catch (err) {
+    showToast(err.message, 'danger');
+    setAlert('tvAlert', err.message);
+  }
+  setLoading(btn, false);
+});
+
+// ─── Clean URL params on load ─────────────────────────────────────────────────
+(function() {
+  if (window.location.search) {
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 })();
 </script>

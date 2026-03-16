@@ -17,3 +17,6 @@
 {"level":"info","message":"✅ MongoDB Connected: ac-nhcizhg-shard-00-02.dhzzqwi.mongodb.net","timestamp":"2026-03-16 22:25:58:2558"}
 {"level":"info","message":"   Database: MOZAICC","timestamp":"2026-03-16 22:25:58:2558"}
 {"level":"info","message":"   Connection String Type: SRV","timestamp":"2026-03-16 22:25:58:2558"}
+{"level":"info","message":"✅ MongoDB Connected: ac-nhcizhg-shard-00-00.dhzzqwi.mongodb.net","timestamp":"2026-03-16 22:48:41:4841"}
+{"level":"info","message":"   Database: MOZAICC","timestamp":"2026-03-16 22:48:41:4841"}
+{"level":"info","message":"   Connection String Type: SRV","timestamp":"2026-03-16 22:48:41:4841"}
