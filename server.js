@@ -128,111 +128,117 @@ connectDB().then(() => {
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
 
-   // ==================== Global Middleware ====================
-app.use((req, res, next) => {
-    res.locals.user = req.session?.user || null;
-    res.locals.currentUrl = req.originalUrl;
-    res.locals.messages = req.flash ? req.flash() : {};
-    res.locals.queryParams = req.query;
-    res.locals.env = process.env.NODE_ENV;
-    res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host') || 'mozaic-eomm.onrender.com'}`;
-    res.locals.nonce = crypto.randomBytes(16).toString('base64');
-    res.locals.bodyClass = '';
-    res.locals.formData = {};
-    
-    // CSRF token will be set by csrf middleware
-    res.locals.csrfToken = '';
-    
-    // FIXED: Safe URL helper function
-    res.locals.url = (path) => {
-        // If no path, return empty string
-        if (!path) return '';
+    // ==================== Global Middleware ====================
+    app.use((req, res, next) => {
+        res.locals.user = req.session?.user || null;
+        res.locals.currentUrl = req.originalUrl;
+        res.locals.messages = req.flash ? req.flash() : {};
+        res.locals.queryParams = req.query;
+        res.locals.env = process.env.NODE_ENV;
+        res.locals.baseUrl = process.env.BASE_URL || `https://${req.get('host') || 'mozaic-eomm.onrender.com'}`;
+        res.locals.nonce = crypto.randomBytes(16).toString('base64');
+        res.locals.bodyClass = '';
+        res.locals.formData = {};
         
-        // If it's already a full URL with protocol, return it as-is
-        if (path.startsWith('http://') || path.startsWith('https://')) {
-            return path;
-        }
+        // CSRF token will be set by csrf middleware
+        res.locals.csrfToken = '';
         
-        // Ensure path starts with a single slash
-        const cleanPath = path.startsWith('/') ? path : '/' + path;
+        // Safe URL helper function
+        res.locals.url = (path) => {
+            if (!path) return '';
+            if (path.startsWith('http://') || path.startsWith('https://')) {
+                return path;
+            }
+            const cleanPath = path.startsWith('/') ? path : '/' + path;
+            if (process.env.NODE_ENV !== 'production' && cleanPath.includes('localhost')) {
+                return cleanPath.replace('https://', 'http://');
+            }
+            return cleanPath;
+        };
         
-        // In development, handle localhost https to http conversion if needed
-        if (process.env.NODE_ENV !== 'production' && cleanPath.includes('localhost')) {
-            return cleanPath.replace('https://', 'http://');
-        }
-        
-        return cleanPath;
-    };
-    
-    next();
-});
-
-
-
-// Add this after session middleware
-app.use((req, res, next) => {
-    console.log(`\n📨 ${req.method} ${req.url}`);
-    console.log('   Headers:', {
-        host: req.get('host'),
-        referer: req.get('referer'),
-        'user-agent': req.get('user-agent')?.substring(0, 50)
+        next();
     });
-    
-    // Log session data (without sensitive info)
-    if (req.session) {
-        console.log('   Session ID exists:', !!req.session.id);
-        console.log('   User ID:', req.session.userId);
-    }
-    
-    next();
+
+    // ==================== CRITICAL HEALTH CHECK ====================
+// These must respond IMMEDIATELY for Render
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', time: Date.now() });
 });
 
-// Add this RIGHT AFTER cookieParser, BEFORE anything else
-app.use((req, res, next) => {
-    console.log('\n🎯 REQUEST STARTED:', req.method, req.url);
-    console.log('   Timestamp:', new Date().toISOString());
-    
-    // Monkey patch res.json to catch errors
-    const originalJson = res.json;
-    res.json = function(data) {
-        console.log('   📦 JSON Response sent for', req.url);
-        return originalJson.call(this, data);
-    };
-    
-    // Add error handler for this request
-    req.on('error', (err) => {
-        console.error('🚨 Request error:', err);
-    });
-    
-    next();
+app.head('/health', (req, res) => {
+    res.status(200).end();
 });
 
-// Add this BEFORE your routes
-app.get('/debug/env', (req, res) => {
-    res.json({
-        NODE_ENV: process.env.NODE_ENV,
-        BASE_URL: process.env.BASE_URL,
-        DOMAIN: process.env.DOMAIN,
-        MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
-        PORT: process.env.PORT,
-        hasSession: !!req.session,
-        sessionID: req.session?.id,
-        hasCsrfSecret: !!req.session?.csrfSecret,
-        headers: {
+app.head('/', (req, res) => {
+    res.status(200).end();
+});
+
+    // Request logging middleware
+    app.use((req, res, next) => {
+        console.log(`\n📨 ${req.method} ${req.url}`);
+        console.log('   Headers:', {
             host: req.get('host'),
-            origin: req.get('origin'),
-            referer: req.get('referer')
+            referer: req.get('referer'),
+            'user-agent': req.get('user-agent')?.substring(0, 50)
+        });
+        
+        if (req.session) {
+            console.log('   Session ID exists:', !!req.session.id);
+            console.log('   User ID:', req.session.userId);
         }
+        
+        next();
     });
-});
+
+    // Response tracking middleware
+    app.use((req, res, next) => {
+        console.log('\n🎯 REQUEST STARTED:', req.method, req.url);
+        console.log('   Timestamp:', new Date().toISOString());
+        
+        const originalJson = res.json;
+        res.json = function(data) {
+            console.log('   📦 JSON Response sent for', req.url);
+            return originalJson.call(this, data);
+        };
+        
+        req.on('error', (err) => {
+            console.error('🚨 Request error:', err);
+        });
+        
+        next();
+    });
+
+    // Debug environment route
+    app.get('/debug/env', (req, res) => {
+        res.json({
+            NODE_ENV: process.env.NODE_ENV,
+            BASE_URL: process.env.BASE_URL,
+            DOMAIN: process.env.DOMAIN,
+            MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
+            PORT: process.env.PORT,
+            hasSession: !!req.session,
+            sessionID: req.session?.id,
+            hasCsrfSecret: !!req.session?.csrfSecret,
+            headers: {
+                host: req.get('host'),
+                origin: req.get('origin'),
+                referer: req.get('referer')
+            }
+        });
+    });
 
     // ==================== Rate Limiting ====================
     app.use('/api/', rateLimiter.api);
     app.use('/auth/', rateLimiter.auth);
 
     // ==================== CSRF Protection ====================
-    // This must come AFTER session but BEFORE routes
-    app.use(setupCsrf)
+    // FIXED: Call setupCsrf() to get the middleware function
+    try {
+      app.use(setupCsrf());
+      console.log('✅ CSRF middleware initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize CSRF:', error);
+    }
     
     // ==================== Routes ====================
 
@@ -245,14 +251,14 @@ app.get('/debug/env', (req, res) => {
         });
     });
 
-    // Add this BEFORE your other routes
-app.get('/test-simple', (req, res) => {
-    res.json({ 
-        status: 'ok',
-        session: !!req.session,
-        message: 'Simple test route working' 
+    // Simple test route
+    app.get('/test-simple', (req, res) => {
+        res.json({ 
+            status: 'ok',
+            session: !!req.session,
+            message: 'Simple test route working' 
+        });
     });
-});
 
     // Load auth routes
     console.log('📂 Loading auth routes from: ./src/routes/web/auth.js');
@@ -346,9 +352,27 @@ app.get('/test-simple', (req, res) => {
     const PORT = process.env.PORT || 3000;
     const server = http.createServer(app);
 
-    server.listen(PORT, () => {
+    // Add server event listeners for better debugging
+    server.on('listening', () => {
+        const addr = server.address();
+        const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
+        console.log(`✅ Server is listening on ${bind}`);
+        console.log(`   Port: ${PORT}`);
+        console.log(`   Environment: ${process.env.NODE_ENV}`);
+        console.log(`   Address: ${addr.address}`);
+    });
+
+    server.on('error', (error) => {
+        console.error('❌ Server error:', error);
+        if (error.code === 'EADDRINUSE') {
+            console.error(`   Port ${PORT} is already in use`);
+        }
+    });
+
+    // FIXED: Bind to 0.0.0.0 to accept all connections
+    server.listen(PORT, '0.0.0.0', () => {
         logger.info(`✅ Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-        logger.info(`📝 Base URL: ${process.env.BASE_URL || `https://${server.address().address}:${PORT}`}`);
+        logger.info(`📝 Base URL: ${process.env.BASE_URL || `https://localhost:${PORT}`}`);
         logger.info(`🏠 Home page: /`);
         logger.info(`🔑 Login page: /auth/login`);
         logger.info(`📝 Register page: /auth/register`);

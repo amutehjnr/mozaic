@@ -5,18 +5,27 @@ const logger = require('../utils/logger');
 const tokens = new Tokens();
 
 /**
- * Setup CSRF protection - FIXED: This is a middleware factory
+ * Setup CSRF protection - FIXED with proper error handling
  */
 const setupCsrf = () => {
     return (req, res, next) => {
+        // CRITICAL FIX: Check if session exists and is ready
+        if (!req.session) {
+            console.warn('⚠️ CSRF: No session available, skipping');
+            res.locals.csrfToken = 'no-session';
+            req.csrfToken = () => 'no-session';
+            return next();
+        }
+
         try {
             // Generate or retrieve CSRF secret from session
-            if (!req.session) {
-                return next();
-            }
-
             if (!req.session.csrfSecret) {
                 req.session.csrfSecret = tokens.secretSync();
+                
+                // Save session immediately to ensure it persists
+                if (req.session.save) {
+                    req.session.save();
+                }
             }
             
             // Generate token for this request
@@ -36,10 +45,10 @@ const setupCsrf = () => {
             
             next();
         } catch (error) {
-            console.error('CSRF setup error:', error);
-            // Continue even if CSRF fails (for development)
-            res.locals.csrfToken = 'dev-token';
-            req.csrfToken = () => 'dev-token';
+            console.error('❌ CSRF setup error:', error);
+            // Provide fallback tokens to prevent crashes
+            res.locals.csrfToken = 'fallback-token';
+            req.csrfToken = () => 'fallback-token';
             next();
         }
     };
@@ -51,11 +60,6 @@ const setupCsrf = () => {
 const csrfProtection = (req, res, next) => {
     // Skip CSRF for GET, HEAD, OPTIONS requests
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        return next();
-    }
-
-    // Skip CSRF in development if needed (temporary)
-    if (process.env.NODE_ENV !== 'production') {
         return next();
     }
 
@@ -85,32 +89,30 @@ const csrfProtection = (req, res, next) => {
             return res.redirect('back');
         }
 
-        // Verify token
-        if (!tokens.verify(req.session.csrfSecret, token)) {
-            logger.warn('CSRF token invalid', {
-                method: req.method,
-                path: req.path,
-                ip: req.ip
-            });
-
-            if (req.xhr || req.path.startsWith('/api/')) {
-                return res.status(403).json({
-                    ok: false,
-                    error: 'Invalid CSRF token'
+        // Verify token if session exists
+        if (req.session && req.session.csrfSecret) {
+            if (!tokens.verify(req.session.csrfSecret, token)) {
+                logger.warn('CSRF token invalid', {
+                    method: req.method,
+                    path: req.path,
+                    ip: req.ip
                 });
-            }
 
-            req.flash('error', 'Invalid security token');
-            return res.redirect('back');
+                if (req.xhr || req.path.startsWith('/api/')) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Invalid CSRF token'
+                    });
+                }
+
+                req.flash('error', 'Invalid security token');
+                return res.redirect('back');
+            }
         }
 
         next();
     } catch (error) {
         console.error('CSRF protection error:', error);
-        // In development, continue even if CSRF fails
-        if (process.env.NODE_ENV !== 'production') {
-            return next();
-        }
         
         if (req.xhr || req.path.startsWith('/api/')) {
             return res.status(500).json({
@@ -128,29 +130,19 @@ const csrfProtection = (req, res, next) => {
  * Generate CSRF token for API responses
  */
 const generateToken = (req) => {
-    console.log('🔑 generateToken called');
-    console.log('   Session exists:', !!req.session);
-    
     try {
         if (!req.session) {
-            throw new Error('No session available');
+            console.warn('generateToken: No session available');
+            return 'fallback-token-' + Date.now();
         }
         
         if (!req.session.csrfSecret) {
-            console.log('   Creating new CSRF secret');
             req.session.csrfSecret = tokens.secretSync();
         }
         
-        const token = tokens.create(req.session.csrfSecret);
-        console.log('   ✅ Token created successfully');
-        return token;
-        
+        return tokens.create(req.session.csrfSecret);
     } catch (error) {
-        console.error('❌ generateToken error:');
-        console.error('   Name:', error.name);
-        console.error('   Message:', error.message);
-        console.error('   Stack:', error.stack);
-        // Return fallback instead of throwing
+        console.error('generateToken error:', error);
         return 'fallback-token-' + Date.now();
     }
 };
