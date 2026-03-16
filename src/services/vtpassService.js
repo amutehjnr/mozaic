@@ -2,52 +2,54 @@ const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 
+/**
+ * VTPass Authentication (from official docs):
+ *
+ *   GET  requests → headers: { api-key, public-key }
+ *   POST requests → headers: { api-key, secret-key }
+ *
+ * Env vars required:
+ *   VTPASS_API_KEY     — static API key (same for GET and POST)
+ *   VTPASS_PUBLIC_KEY  — public key  (GET requests only)
+ *   VTPASS_SECRET_KEY  — secret key  (POST requests only)
+ *   VTPASS_SANDBOX     — "true" for sandbox, omit/false for live
+ */
 class VTPassService {
     constructor() {
         this.apiKey    = process.env.VTPASS_API_KEY;
+        this.publicKey = process.env.VTPASS_PUBLIC_KEY;
         this.secretKey = process.env.VTPASS_SECRET_KEY;
-        this.username  = process.env.VTPASS_USERNAME;
-        this.password  = process.env.VTPASS_PASSWORD;
         this.sandbox   = process.env.VTPASS_SANDBOX === 'true';
 
         this.baseURL = this.sandbox
             ? 'https://sandbox.vtpass.com/api'
             : 'https://api.vtpass.com/api';
 
-        // VTPass uses different auth per endpoint type:
-        //   GET  (service-variations, merchant-verify) → api-key header
-        //   POST (pay, requery)                        → Basic Auth (username/password)
-        //                                                OR api-key + secret-key headers
-
-        const commonHeaders = {
-            'Content-Type': 'application/json',
-            'Accept':       'application/json',
-        };
-
-        // GET client: api-key header only
+        // GET client — api-key + public-key headers
         this.getClient = axios.create({
             baseURL: this.baseURL,
-            headers: { ...commonHeaders, 'api-key': this.apiKey || '' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept':       'application/json',
+                'api-key':      this.apiKey    || '',
+                'public-key':   this.publicKey || '',
+            },
             timeout: 30000,
         });
 
-        // POST client: Basic Auth preferred; fall back to header-based auth
+        // POST client — api-key + secret-key headers
         this.postClient = axios.create({
             baseURL: this.baseURL,
             headers: {
-                ...commonHeaders,
-                // Header-based fallback (used when no username/password)
-                'api-key':    this.apiKey    || '',
-                'secret-key': this.secretKey || '',
+                'Content-Type': 'application/json',
+                'Accept':       'application/json',
+                'api-key':      this.apiKey    || '',
+                'secret-key':   this.secretKey || '',
             },
-            // Basic Auth (takes priority when both are present)
-            auth: (this.username && this.password)
-                ? { username: this.username, password: this.password }
-                : undefined,
             timeout: 30000,
         });
 
-        // Attach logging interceptors to both clients
+        // Logging interceptors on both clients
         [this.getClient, this.postClient].forEach(client => {
             client.interceptors.request.use(config => {
                 logger.debug(`VTPass → ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
@@ -74,19 +76,22 @@ class VTPassService {
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
     isConfigured() {
-        return !!(this.apiKey || (this.username && this.password));
+        return !!(this.apiKey && this.publicKey && this.secretKey);
     }
 
+    /**
+     * VTPass request_id format: YYYYMMDDHHmmss + random hex
+     * Must be unique per transaction.
+     */
     generateRequestId() {
-        // VTPass requires a unique request_id; use timestamp + random hex
-        const now  = new Date();
-        const pad  = n => String(n).padStart(2, '0');
-        const ts   =
-            now.getFullYear() +
-            pad(now.getMonth() + 1) +
-            pad(now.getDate()) +
-            pad(now.getHours()) +
-            pad(now.getMinutes()) +
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const ts  =
+            now.getFullYear()        +
+            pad(now.getMonth() + 1)  +
+            pad(now.getDate())       +
+            pad(now.getHours())      +
+            pad(now.getMinutes())    +
             pad(now.getSeconds());
         return ts + crypto.randomBytes(4).toString('hex').toUpperCase();
     }
@@ -94,14 +99,14 @@ class VTPassService {
     // ─── Low-level request wrappers ────────────────────────────────────────────
 
     /**
-     * GET — uses api-key header client.
-     * Never retried on 401/403.
+     * GET — api-key + public-key headers.
+     * No retries on 401 (wrong key, not transient).
      */
     async _get(endpoint, params = {}) {
         if (!this.isConfigured()) {
             return {
                 ok: false,
-                error: 'VTPass credentials not configured. Set VTPASS_API_KEY (and optionally VTPASS_SECRET_KEY).',
+                error: 'VTPass not configured. Set VTPASS_API_KEY, VTPASS_PUBLIC_KEY, VTPASS_SECRET_KEY.',
                 status: 503,
             };
         }
@@ -109,19 +114,19 @@ class VTPassService {
             const res = await this.getClient.get(endpoint, { params });
             return { ok: true, data: res.data, status: res.status };
         } catch (err) {
-            return this._handleError(err);
+            return this._wrapError(err);
         }
     }
 
     /**
-     * POST — uses Basic Auth (or header-based) client.
-     * Retries up to 2× on transient failures; never retries 401/403.
+     * POST — api-key + secret-key headers.
+     * Retries up to 2× on transient errors; never retries 401/403.
      */
     async _post(endpoint, data, retries = 2) {
         if (!this.isConfigured()) {
             return {
                 ok: false,
-                error: 'VTPass credentials not configured. Set VTPASS_USERNAME + VTPASS_PASSWORD (or VTPASS_API_KEY + VTPASS_SECRET_KEY).',
+                error: 'VTPass not configured. Set VTPASS_API_KEY, VTPASS_PUBLIC_KEY, VTPASS_SECRET_KEY.',
                 status: 503,
             };
         }
@@ -131,38 +136,23 @@ class VTPassService {
                 return { ok: true, data: res.data, status: res.status };
             } catch (err) {
                 const status = err.response?.status;
-                // Auth errors: fail immediately, retrying won't help
-                if (status === 401 || status === 403) {
-                    return this._handleError(err);
+                if (status === 401 || status === 403 || attempt === retries) {
+                    return this._wrapError(err);
                 }
-                if (attempt === retries) {
-                    return this._handleError(err);
-                }
-                // Exponential backoff for transient errors
                 await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
             }
         }
     }
 
-    _handleError(err) {
+    _wrapError(err) {
         const status = err.response?.status;
-        let error = err.message;
-
-        if (status === 401) {
-            error = 'VTPass authentication failed. Check VTPASS_USERNAME / VTPASS_PASSWORD (or VTPASS_API_KEY).';
-        } else if (status === 403) {
-            error = 'VTPass access forbidden. Check your API key permissions.';
-        }
-
-        return {
-            ok: false,
-            error,
-            data: err.response?.data,
-            status,
-        };
+        let error    = err.message;
+        if (status === 401) error = 'VTPass authentication failed — check VTPASS_API_KEY and VTPASS_SECRET_KEY (for POST) or VTPASS_PUBLIC_KEY (for GET).';
+        if (status === 403) error = 'VTPass access forbidden — check your API key permissions on your VTPass profile.';
+        return { ok: false, error, data: err.response?.data, status };
     }
 
-    // ─── Public service methods ────────────────────────────────────────────────
+    // ─── Public API methods ────────────────────────────────────────────────────
 
     async getVariations(serviceID) {
         return this._get('/service-variations', { serviceID });
@@ -267,8 +257,8 @@ class VTPassService {
             const v = await this.verify(serviceID, smartcard);
             if (v.ok && v.data) {
                 customerName =
-                    v.data.customer_name         ||
-                    v.data.Customer_Name         ||
+                    v.data.customer_name          ||
+                    v.data.Customer_Name          ||
                     v.data.content?.Customer_Name ||
                     null;
             }
