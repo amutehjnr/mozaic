@@ -1,53 +1,37 @@
 <%- include('./_layout_start') %>
 
-<!-- Summary tiles -->
-<div class="kpi-grid mb-3" id="txKpis">
-  <% [
-    {label:'Total Amount',    color:'var(--a-success)'},
-    {label:'Avg Transaction', color:'var(--a-info)'},
-    {label:'Successful',      color:'var(--a-success)'},
-    {label:'Failed',          color:'var(--a-danger)'},
-  ].forEach(function(t){ %>
-    <div class="kpi-tile" style="--tile-color:<%= t.color %>">
-      <div class="label"><%= t.label %></div>
-      <div class="value">—</div>
-      <div class="sub">loading</div>
-    </div>
-  <% }); %>
+<div class="kpi-grid mb-3">
+  <div class="kpi-tile" style="--tile-color:var(--a-success)"><div class="label">Total Amount</div><div class="value" id="kTotalAmt">—</div><div class="sub">all filtered</div></div>
+  <div class="kpi-tile" style="--tile-color:var(--a-info)"><div class="label">Avg Transaction</div><div class="value" id="kAvgAmt">—</div><div class="sub">per transaction</div></div>
+  <div class="kpi-tile" style="--tile-color:var(--a-success)"><div class="label">Successful</div><div class="value" id="kSuccess">—</div><div class="sub">completed</div></div>
+  <div class="kpi-tile" style="--tile-color:var(--a-danger)"><div class="label">Failed</div><div class="value" id="kFailed">—</div><div class="sub">failed</div></div>
 </div>
 
-<!-- Filters -->
 <div class="a-card mb-3">
   <div class="a-card-body" style="padding:.85rem 1.25rem;">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:.75rem;align-items:end;flex-wrap:wrap;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:.75rem;align-items:end;">
       <div>
         <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Type</label>
         <select class="a-select" id="typeFilter">
           <option value="">All Types</option>
-          <option value="credit">Credit</option>
-          <option value="debit">Debit</option>
-          <option value="refund">Refund</option>
-          <option value="bonus">Bonus</option>
+          <option value="credit">Credit</option><option value="debit">Debit</option>
+          <option value="refund">Refund</option><option value="bonus">Bonus</option>
         </select>
       </div>
       <div>
         <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Status</label>
         <select class="a-select" id="statusFilter">
           <option value="">All</option>
-          <option value="success">Success</option>
-          <option value="pending">Pending</option>
-          <option value="failed">Failed</option>
-          <option value="processing">Processing</option>
+          <option value="success">Success</option><option value="pending">Pending</option>
+          <option value="failed">Failed</option><option value="processing">Processing</option>
         </select>
       </div>
       <div>
         <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Provider</label>
         <select class="a-select" id="providerFilter">
           <option value="">All</option>
-          <option value="flutterwave">Flutterwave</option>
-          <option value="airtime">Airtime</option>
-          <option value="data">Data</option>
-          <option value="electricity">Electricity</option>
+          <option value="flutterwave">Flutterwave</option><option value="airtime">Airtime</option>
+          <option value="data">Data</option><option value="electricity">Electricity</option>
           <option value="tv">TV</option>
         </select>
       </div>
@@ -59,14 +43,11 @@
         <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">To</label>
         <input class="a-input" id="toFilter" type="date">
       </div>
-      <button class="a-btn a-btn-primary" id="searchBtn" style="align-self:end;">
-        <i class="bi bi-search"></i> Filter
-      </button>
+      <button class="a-btn a-btn-primary" id="searchBtn" style="align-self:end;"><i class="bi bi-search"></i> Filter</button>
     </div>
   </div>
 </div>
 
-<!-- Table -->
 <div class="a-card">
   <div class="a-card-header">
     <span class="a-card-title">Transactions</span>
@@ -74,23 +55,8 @@
   </div>
   <div style="overflow-x:auto;">
     <table class="a-table">
-      <thead>
-        <tr>
-          <th>Reference</th>
-          <th>User</th>
-          <th>Type</th>
-          <th>Provider</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Date</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody id="txTbody">
-        <tr><td colspan="8" style="padding:2rem;text-align:center;">
-          <div class="a-skeleton" style="height:14px;width:40%;margin:0 auto;border-radius:4px;"></div>
-        </td></tr>
-      </tbody>
+      <thead><tr><th>Reference</th><th>User</th><th>Type</th><th>Provider</th><th>Amount</th><th>Status</th><th>Date</th><th>Details</th></tr></thead>
+      <tbody id="txTbody"></tbody>
     </table>
   </div>
   <div style="padding:1rem 1.25rem;border-top:1px solid var(--a-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;">
@@ -100,8 +66,7 @@
 </div>
 
 <script>
-(async function () {
-    var A    = window.Admin;
+(function () {
     var page = 1;
 
     function getFilters() {
@@ -110,46 +75,36 @@
             status:   document.getElementById('statusFilter').value,
             provider: document.getElementById('providerFilter').value,
             from:     document.getElementById('fromFilter').value,
-            to:       document.getElementById('toFilter').value,
+            to:       document.getElementById('toFilter').value
         };
     }
 
     async function load(p) {
         page = p || 1;
         var f  = getFilters();
-        var qs = '?page='+page+'&limit=20';
-        if (f.type)     qs += '&type='+f.type;
-        if (f.status)   qs += '&status='+f.status;
-        if (f.provider) qs += '&provider='+f.provider;
-        if (f.from)     qs += '&from='+f.from;
-        if (f.to)       qs += '&to='+f.to;
+        var qs = '?page=' + page + '&limit=20';
+        if (f.type)     qs += '&type='     + f.type;
+        if (f.status)   qs += '&status='   + f.status;
+        if (f.provider) qs += '&provider=' + f.provider;
+        if (f.from)     qs += '&from='     + f.from;
+        if (f.to)       qs += '&to='       + f.to;
 
         var tbody = document.getElementById('txTbody');
-        tbody.innerHTML = A.skeleton(8, 8);
+        tbody.innerHTML = Admin.skeleton(8, 8);
 
         try {
-            var data = await A.get('/api/admin/transactions' + qs);
+            var data = await Admin.get('/api/admin/transactions' + qs);
             var txs  = data.transactions || [];
-            var sm   = data.summary || {};
-            var pg   = data.pagination || {};
+            var sm   = data.summary      || {};
+            var pg   = data.pagination   || {};
 
-            // Update KPI tiles
-            var tiles = document.querySelectorAll('#txKpis .kpi-tile');
-            var kpis  = [
-                { value: A.fmtNaira(sm.totalAmount), sub: 'total volume' },
-                { value: A.fmtNaira(sm.avgAmount),   sub: 'per transaction' },
-                { value: sm.successCount || 0,        sub: 'successful' },
-                { value: sm.failedCount  || 0,        sub: 'failed' },
-            ];
-            tiles.forEach(function(t, i) {
-                var d = kpis[i]; if (!d) return;
-                t.querySelector('.value').textContent = String(d.value);
-                t.querySelector('.sub').textContent   = d.sub;
-            });
-
-            document.getElementById('txCount').textContent   = pg.total + ' total';
+            document.getElementById('kTotalAmt').textContent = Admin.fmtNaira(sm.totalAmount  || 0);
+            document.getElementById('kAvgAmt').textContent   = Admin.fmtNaira(sm.avgAmount    || 0);
+            document.getElementById('kSuccess').textContent  = sm.successCount || 0;
+            document.getElementById('kFailed').textContent   = sm.failedCount  || 0;
+            document.getElementById('txCount').textContent   = (pg.total || 0) + ' total';
             document.getElementById('paginationInfo').textContent =
-                'Page ' + pg.page + ' of ' + pg.pages + ' · ' + pg.total + ' transactions';
+                'Page ' + (pg.page||1) + ' of ' + (pg.pages||1) + ' · ' + (pg.total||0) + ' transactions';
 
             if (!txs.length) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:3rem;color:var(--a-muted);">No transactions found</td></tr>';
@@ -157,31 +112,31 @@
                 return;
             }
 
-            tbody.innerHTML = txs.map(function(t) {
-                var user = t.user_id;
+            tbody.innerHTML = txs.map(function (t) {
+                var u = t.user_id || {};
                 return '<tr>' +
-                    '<td style="font-family:var(--font-mono);font-size:.75rem;color:var(--a-muted);">'+A.escHtml((t.reference||'').slice(-14))+'</td>' +
-                    '<td style="font-size:.82rem;"><a href="/admin/users/'+((user&&user._id)||'')+'" style="color:var(--a-accent);text-decoration:none;">'+A.escHtml((user&&user.name)||'—')+'</a></td>' +
-                    '<td style="text-transform:capitalize;font-size:.82rem;">'+A.escHtml(t.type||'—')+'</td>' +
-                    '<td style="text-transform:capitalize;font-size:.82rem;">'+A.escHtml(t.provider||'—')+'</td>' +
-                    '<td style="font-family:var(--font-mono);font-weight:700;color:'+(t.type==='credit'?'var(--a-success)':'var(--a-text)')+';">'+A.fmtNaira(t.amount)+'</td>' +
-                    '<td>'+A.badge(t.status)+'</td>' +
-                    '<td style="font-size:.8rem;color:var(--a-muted);">'+A.fmtDateShort(t.created_at)+'</td>' +
-                    '<td style="font-size:.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+A.escHtml(t.details||'')+'">'+A.escHtml(t.details||'—')+'</td>' +
+                    '<td style="font-family:var(--font-mono);font-size:.75rem;color:var(--a-muted);">' + Admin.escHtml((t.reference||'').slice(-14)) + '</td>' +
+                    '<td style="font-size:.82rem;"><a href="/admin/users/' + (u._id||'') + '" style="color:var(--a-accent);text-decoration:none;">' + Admin.escHtml(u.name||'—') + '</a></td>' +
+                    '<td style="text-transform:capitalize;font-size:.82rem;">' + Admin.escHtml(t.type||'—') + '</td>' +
+                    '<td style="text-transform:capitalize;font-size:.82rem;">' + Admin.escHtml(t.provider||'—') + '</td>' +
+                    '<td style="font-family:var(--font-mono);font-weight:700;color:' + (t.type==='credit'?'var(--a-success)':'var(--a-text)') + ';">' + Admin.fmtNaira(t.amount) + '</td>' +
+                    '<td>' + Admin.badge(t.status) + '</td>' +
+                    '<td style="font-size:.8rem;color:var(--a-muted);">' + Admin.fmtDateShort(t.created_at) + '</td>' +
+                    '<td style="font-size:.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + Admin.escHtml(t.details||'') + '">' + Admin.escHtml(t.details||'—') + '</td>' +
                 '</tr>';
             }).join('');
 
             var ctrl = document.getElementById('paginationControls');
             ctrl.innerHTML = '';
-            ctrl.appendChild(A.buildPagination(pg, load));
+            ctrl.appendChild(Admin.buildPagination(pg, load));
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--a-danger);">'+A.escHtml(err.message)+'</td></tr>';
-            A.toast(err.message, 'error');
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--a-danger);">' + Admin.escHtml(err.message) + '</td></tr>';
+            Admin.toast(err.message, 'error');
         }
     }
 
-    document.getElementById('searchBtn').addEventListener('click', function(){ load(1); });
+    document.getElementById('searchBtn').addEventListener('click', function () { load(1); });
     load(1);
 })();
 </script>

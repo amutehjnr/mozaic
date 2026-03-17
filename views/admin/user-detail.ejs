@@ -5,17 +5,13 @@
   <div class="a-skeleton" style="height:300px;border-radius:12px;"></div>
 </div>
 
-<!-- Wallet Adjust Modal -->
 <div class="a-modal-backdrop" id="walletModal">
   <div class="a-modal">
-    <div class="a-modal-title"><i class="bi bi-wallet2 text-accent me-2"></i>Adjust Wallet</div>
+    <div class="a-modal-title"><i class="bi bi-wallet2" style="color:var(--a-accent);margin-right:.5rem;"></i>Adjust Wallet</div>
     <div style="display:grid;gap:.85rem;">
       <div>
         <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Type</label>
-        <select class="a-select" id="adjustType">
-          <option value="credit">Credit (Add funds)</option>
-          <option value="debit">Debit (Remove funds)</option>
-        </select>
+        <select class="a-select" id="adjustType"><option value="credit">Credit</option><option value="debit">Debit</option></select>
       </div>
       <div>
         <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Amount (₦)</label>
@@ -23,7 +19,7 @@
       </div>
       <div>
         <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Reason</label>
-        <input class="a-input" id="adjustReason" placeholder="Brief reason for adjustment">
+        <input class="a-input" id="adjustReason" placeholder="Brief reason">
       </div>
     </div>
     <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end;">
@@ -34,21 +30,27 @@
 </div>
 
 <script>
-(async function () {
-    var A      = window.Admin;
+(function () {
     var userId = '<%= userId %>';
 
     async function load() {
         try {
-            var data = await A.get('/api/admin/users/' + userId);
-            var u    = data.user;
-            render(u);
+            var data = await Admin.get('/api/admin/users/' + userId);
+            render(data.user);
         } catch (err) {
             document.getElementById('userDetailContent').innerHTML =
-                '<div style="text-align:center;padding:3rem;color:var(--a-danger);">'+
-                '<i class="bi bi-exclamation-triangle" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>'+
-                A.escHtml(err.message)+'</div>';
+                '<div style="text-align:center;padding:3rem;color:var(--a-danger);">' +
+                '<i class="bi bi-exclamation-triangle" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>' +
+                Admin.escHtml(err.message) + '</div>';
         }
+    }
+
+    function kpiTile(label, value, sub, color) {
+        return '<div class="kpi-tile" style="--tile-color:' + color + ';">' +
+            '<div class="label">' + Admin.escHtml(label) + '</div>' +
+            '<div class="value" style="font-size:1.35rem;">' + Admin.escHtml(String(value)) + '</div>' +
+            '<div class="sub">' + Admin.escHtml(sub) + '</div>' +
+        '</div>';
     }
 
     function render(u) {
@@ -56,22 +58,20 @@
         var kyc    = u.kyc    || {};
         var txs    = (u.transactions || []).slice(0, 20);
         var refs   = u.referrals || [];
-
-        var initials = (u.name||'U').split(' ').map(function(n){return n[0];}).join('').toUpperCase().slice(0,2);
+        var initials = (u.name || 'U').split(' ').map(function (n) { return n[0]; }).join('').toUpperCase().slice(0, 2);
 
         var html =
-        // Profile header
         '<div class="a-card mb-3" style="padding:1.5rem;">' +
             '<div style="display:flex;align-items:flex-start;gap:1.25rem;flex-wrap:wrap;">' +
-                '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--a-accent),#ff8a5c);display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700;color:#fff;flex-shrink:0;">'+A.escHtml(initials)+'</div>' +
+                '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--a-accent),#ff8a5c);display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700;color:#fff;flex-shrink:0;">' + Admin.escHtml(initials) + '</div>' +
                 '<div style="flex:1;min-width:200px;">' +
                     '<div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.35rem;">' +
-                        '<h2 style="font-family:var(--font-mono);font-size:1.2rem;font-weight:700;color:#fff;margin:0;">'+A.escHtml(u.name||'—')+'</h2>' +
-                        '<span style="font-family:var(--font-mono);font-size:.72rem;background:rgba(255,255,255,.06);padding:.15rem .45rem;border-radius:4px;">'+A.escHtml(u.role||'user')+'</span>' +
-                        A.badge(u.isActive ? 'active' : 'inactive') +
+                        '<h2 style="font-family:var(--font-mono);font-size:1.2rem;font-weight:700;color:#fff;margin:0;">' + Admin.escHtml(u.name || '—') + '</h2>' +
+                        '<span style="font-family:var(--font-mono);font-size:.72rem;background:rgba(255,255,255,.06);padding:.15rem .45rem;border-radius:4px;">' + Admin.escHtml(u.role || 'user') + '</span>' +
+                        Admin.badge(u.isActive ? 'active' : 'inactive') +
                     '</div>' +
-                    '<div style="font-size:.85rem;color:var(--a-muted);">'+A.escHtml(u.email||'')+(u.phone ? ' · '+A.escHtml(u.phone) : '')+'</div>' +
-                    '<div style="font-size:.78rem;color:var(--a-muted);margin-top:.25rem;">Joined '+A.fmtDateShort(u.created_at)+' · Last login: '+A.fmtDateShort(u.lastLogin)+'</div>' +
+                    '<div style="font-size:.85rem;color:var(--a-muted);">' + Admin.escHtml(u.email || '') + (u.phone ? ' · ' + Admin.escHtml(u.phone) : '') + '</div>' +
+                    '<div style="font-size:.78rem;color:var(--a-muted);margin-top:.25rem;">Joined ' + Admin.fmtDateShort(u.created_at) + ' · Last login: ' + Admin.fmtDateShort(u.lastLogin) + '</div>' +
                 '</div>' +
                 '<div style="display:flex;gap:.5rem;flex-wrap:wrap;">' +
                     '<button class="a-btn a-btn-primary" id="openWalletBtn"><i class="bi bi-wallet2"></i> Adjust Wallet</button>' +
@@ -80,89 +80,73 @@
             '</div>' +
         '</div>' +
 
-        // Stats row
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.85rem;margin-bottom:1rem;">' +
-            kpiTile('Wallet Balance',  A.fmtNaira(wallet.balance), wallet.status||'—', 'var(--a-success)') +
-            kpiTile('Wallet Tier',     wallet.tier||'basic', 'account tier', 'var(--a-info)') +
-            kpiTile('KYC Status',      kyc.status||'none', kyc.tier||'—', 'var(--a-accent)') +
-            kpiTile('Transactions',    txs.length, 'recent 20 shown', 'var(--a-warning)') +
-            kpiTile('Referrals',       refs.length, 'total referrals', 'var(--a-accent)') +
+            kpiTile('Wallet Balance', Admin.fmtNaira(wallet.balance || 0), wallet.status || '—', 'var(--a-success)') +
+            kpiTile('Wallet Tier',    wallet.tier || 'basic',              'account tier',       'var(--a-info)') +
+            kpiTile('KYC Status',     kyc.status  || 'none',              kyc.tier || '—',      'var(--a-accent)') +
+            kpiTile('Transactions',   txs.length,                         'recent 20 shown',    'var(--a-warning)') +
+            kpiTile('Referrals',      refs.length,                        'total referrals',    'var(--a-accent)') +
         '</div>' +
 
-        // Transactions
         '<div class="a-card mb-3">' +
             '<div class="a-card-header"><span class="a-card-title">Recent Transactions</span></div>' +
             '<div style="overflow-x:auto;">' +
                 '<table class="a-table"><thead><tr><th>Reference</th><th>Type</th><th>Provider</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>' +
-                (txs.length ? txs.map(function(t) {
+                (txs.length ? txs.map(function (t) {
                     return '<tr>' +
-                        '<td style="font-family:var(--font-mono);font-size:.75rem;color:var(--a-muted);">'+A.escHtml((t.reference||'').slice(-12))+'</td>' +
-                        '<td style="text-transform:capitalize;font-size:.83rem">'+A.escHtml(t.type||'—')+'</td>' +
-                        '<td style="text-transform:capitalize;font-size:.83rem">'+A.escHtml(t.provider||'—')+'</td>' +
-                        '<td style="font-family:var(--font-mono);font-weight:700;color:'+(t.type==='credit'?'var(--a-success)':'var(--a-text)')+'">'+A.fmtNaira(t.amount)+'</td>' +
-                        '<td>'+A.badge(t.status)+'</td>' +
-                        '<td style="font-size:.8rem;color:var(--a-muted)">'+A.fmtDateShort(t.created_at)+'</td>' +
+                        '<td style="font-family:var(--font-mono);font-size:.75rem;color:var(--a-muted);">' + Admin.escHtml((t.reference || '').slice(-12)) + '</td>' +
+                        '<td style="text-transform:capitalize;font-size:.83rem;">' + Admin.escHtml(t.type || '—') + '</td>' +
+                        '<td style="text-transform:capitalize;font-size:.83rem;">' + Admin.escHtml(t.provider || '—') + '</td>' +
+                        '<td style="font-family:var(--font-mono);font-weight:700;color:' + (t.type === 'credit' ? 'var(--a-success)' : 'var(--a-text)') + ';">' + Admin.fmtNaira(t.amount) + '</td>' +
+                        '<td>' + Admin.badge(t.status) + '</td>' +
+                        '<td style="font-size:.8rem;color:var(--a-muted);">' + Admin.fmtDateShort(t.created_at) + '</td>' +
                     '</tr>';
                 }).join('') : '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--a-muted);">No transactions</td></tr>') +
                 '</tbody></table>' +
             '</div>' +
         '</div>' +
 
-        // Referrals
         (refs.length > 0 ?
         '<div class="a-card">' +
             '<div class="a-card-header"><span class="a-card-title">Referrals</span></div>' +
             '<div style="overflow-x:auto;">' +
                 '<table class="a-table"><thead><tr><th>Referred User</th><th>Status</th><th>Reward</th><th>Date</th></tr></thead><tbody>' +
-                refs.map(function(r) {
+                refs.map(function (r) {
                     var ru = r.referred_user_id || {};
                     return '<tr>' +
-                        '<td style="font-weight:600">'+A.escHtml(ru.name||ru.email||'Pending')+'</td>' +
-                        '<td>'+A.badge(r.status)+'</td>' +
-                        '<td style="font-family:var(--font-mono);font-size:.82rem">'+A.fmtNaira(r.reward_amount||0)+'</td>' +
-                        '<td style="font-size:.8rem;color:var(--a-muted)">'+A.fmtDateShort(r.created_at)+'</td>' +
+                        '<td style="font-weight:600;">' + Admin.escHtml(ru.name || ru.email || 'Pending') + '</td>' +
+                        '<td>' + Admin.badge(r.status) + '</td>' +
+                        '<td style="font-family:var(--font-mono);font-size:.82rem;">' + Admin.fmtNaira(r.reward_amount || 0) + '</td>' +
+                        '<td style="font-size:.8rem;color:var(--a-muted);">' + Admin.fmtDateShort(r.created_at) + '</td>' +
                     '</tr>';
                 }).join('') +
                 '</tbody></table>' +
             '</div>' +
-        '</div>' : '') +
-        '';
+        '</div>' : '');
 
         document.getElementById('userDetailContent').innerHTML = html;
 
-        // Wallet modal
-        document.getElementById('openWalletBtn').addEventListener('click', function() {
+        document.getElementById('openWalletBtn').addEventListener('click', function () {
             document.getElementById('walletModal').classList.add('open');
         });
     }
 
-    function kpiTile(label, value, sub, color) {
-        return '<div class="kpi-tile" style="--tile-color:'+color+';">' +
-            '<div class="label">'+A.escHtml(label)+'</div>' +
-            '<div class="value" style="font-size:1.35rem;">'+A.escHtml(String(value))+'</div>' +
-            '<div class="sub">'+A.escHtml(sub)+'</div>' +
-        '</div>';
-    }
-
-    // Wallet modal handlers
-    document.getElementById('closeWalletModal').addEventListener('click', function() {
+    document.getElementById('closeWalletModal').addEventListener('click', function () {
         document.getElementById('walletModal').classList.remove('open');
     });
-
-    document.getElementById('confirmAdjust').addEventListener('click', async function() {
+    document.getElementById('confirmAdjust').addEventListener('click', async function () {
         var amount = parseFloat(document.getElementById('adjustAmount').value);
         var type   = document.getElementById('adjustType').value;
         var reason = document.getElementById('adjustReason').value.trim();
-        if (!amount || amount <= 0) { A.toast('Enter a valid amount', 'error'); return; }
-        if (!reason)                { A.toast('Reason is required',   'error'); return; }
-        var btn = this;
-        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.8rem;height:.8rem;border-width:2px;"></span>';
+        if (!amount || amount <= 0) { Admin.toast('Enter a valid amount', 'error'); return; }
+        if (!reason)               { Admin.toast('Reason is required',   'error'); return; }
+        var btn = this; btn.disabled = true; btn.textContent = 'Processing...';
         try {
-            await A.post('/api/admin/wallet/adjust', { userId: userId, amount, type, reason });
-            A.toast('Wallet adjusted successfully', 'success');
+            await Admin.post('/api/admin/wallet/adjust', { userId: userId, amount, type, reason });
+            Admin.toast('Wallet adjusted', 'success');
             document.getElementById('walletModal').classList.remove('open');
             load();
-        } catch (err) { A.toast(err.message, 'error'); }
+        } catch (err) { Admin.toast(err.message, 'error'); }
         btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2"></i> Confirm';
     });
 

@@ -1,40 +1,32 @@
 <%- include('./_layout_start') %>
 
-<div class="row g-3 mb-3" id="serviceCards">
+<div class="row g-3 mb-3">
   <% ['Database','Flutterwave','VTPass','Email'].forEach(function(svc){ %>
     <div class="col-md-6 col-lg-3">
       <div class="a-card" style="padding:1.25rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
           <span style="font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--a-muted);"><%= svc %></span>
-          <div class="svc-dot" data-svc="<%= svc.toLowerCase() %>"
-               style="width:10px;height:10px;border-radius:50%;background:var(--a-muted);"></div>
+          <div class="svc-dot" data-svc="<%= svc.toLowerCase() %>" style="width:10px;height:10px;border-radius:50%;background:var(--a-muted);"></div>
         </div>
-        <div class="svc-status" data-svc="<%= svc.toLowerCase() %>"
-             style="font-family:var(--font-mono);font-size:1.1rem;font-weight:700;color:var(--a-muted);">—</div>
-        <div class="svc-label" data-svc="<%= svc.toLowerCase() %>"
-             style="font-size:.78rem;color:var(--a-muted);margin-top:.25rem;">checking...</div>
+        <div class="svc-status" data-svc="<%= svc.toLowerCase() %>" style="font-family:var(--font-mono);font-size:1.1rem;font-weight:700;color:var(--a-muted);">—</div>
+        <div class="svc-label"  data-svc="<%= svc.toLowerCase() %>" style="font-size:.78rem;color:var(--a-muted);margin-top:.25rem;">checking...</div>
       </div>
     </div>
   <% }); %>
 </div>
 
 <div class="row g-3">
-  <!-- Uptime & memory -->
   <div class="col-lg-6">
     <div class="a-card">
       <div class="a-card-header">
         <span class="a-card-title">Process Metrics</span>
-        <button class="a-btn a-btn-ghost a-btn-sm" id="refreshBtn">
-          <i class="bi bi-arrow-clockwise"></i> Refresh
-        </button>
+        <button class="a-btn a-btn-ghost a-btn-sm" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
       </div>
       <div class="a-card-body" id="metricsBody">
-        <div class="a-skeleton" style="height:120px;border-radius:8px;"></div>
+        <div class="a-skeleton" style="height:140px;border-radius:8px;"></div>
       </div>
     </div>
   </div>
-
-  <!-- Services config -->
   <div class="col-lg-6">
     <div class="a-card">
       <div class="a-card-header">
@@ -42,97 +34,74 @@
         <span id="overallBadge"></span>
       </div>
       <div class="a-card-body" id="configBody">
-        <div class="a-skeleton" style="height:120px;border-radius:8px;"></div>
+        <div class="a-skeleton" style="height:140px;border-radius:8px;"></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-(async function () {
-    var A = window.Admin;
-
-    function fmtUptime(seconds) {
-        var h = Math.floor(seconds / 3600);
-        var m = Math.floor((seconds % 3600) / 60);
-        var s = Math.floor(seconds % 60);
-        return h + 'h ' + m + 'm ' + s + 's';
+(function () {
+    function fmtUptime(s) {
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+        return h + 'h ' + m + 'm ' + sec + 's';
     }
-
-    function fmtBytes(bytes) {
-        if (bytes < 1024)        return bytes + ' B';
-        if (bytes < 1024*1024)   return (bytes/1024).toFixed(1) + ' KB';
-        return (bytes/1024/1024).toFixed(1) + ' MB';
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+        return (b/1024/1024).toFixed(1) + ' MB';
     }
 
     async function load() {
         try {
-            var data     = await A.get('/api/admin/health');
+            var data     = await Admin.get('/api/admin/health');
             var services = data.services || {};
             var metrics  = data.metrics  || {};
-
-            // Service dots
             var dotColors = { healthy:'var(--a-success)', configured:'var(--a-success)', missing:'var(--a-danger)', unhealthy:'var(--a-danger)' };
-            Object.keys(services).forEach(function(svcKey) {
-                var val   = services[svcKey];
+
+            Object.keys(services).forEach(function (key) {
+                var val   = services[key];
                 var color = dotColors[val] || 'var(--a-warning)';
-                document.querySelectorAll('.svc-dot[data-svc="'+svcKey+'"]').forEach(function(el) {
-                    el.style.background  = color;
-                    el.style.boxShadow   = '0 0 8px ' + color;
-                });
-                document.querySelectorAll('.svc-status[data-svc="'+svcKey+'"]').forEach(function(el) {
-                    el.textContent = val;
-                    el.style.color = color;
-                });
-                document.querySelectorAll('.svc-label[data-svc="'+svcKey+'"]').forEach(function(el) {
+                document.querySelectorAll('.svc-dot[data-svc="'    + key + '"]').forEach(function (el) { el.style.background = color; el.style.boxShadow = '0 0 8px ' + color; });
+                document.querySelectorAll('.svc-status[data-svc="' + key + '"]').forEach(function (el) { el.textContent = val; el.style.color = color; });
+                document.querySelectorAll('.svc-label[data-svc="'  + key + '"]').forEach(function (el) {
                     el.textContent = val === 'configured' ? 'API keys set' : val === 'missing' ? 'Not configured' : val;
                 });
             });
 
-            // Overall badge
-            document.getElementById('overallBadge').innerHTML = A.badge(data.status || '—');
+            document.getElementById('overallBadge').innerHTML = Admin.badge(data.status || '—');
 
-            // Metrics
             var mem  = metrics.memory || {};
             var rows = [
-                { label:'Uptime',        value: fmtUptime(metrics.uptime || 0) },
-                { label:'Heap Used',     value: fmtBytes(mem.heapUsed  || 0) },
-                { label:'Heap Total',    value: fmtBytes(mem.heapTotal || 0) },
-                { label:'RSS Memory',    value: fmtBytes(mem.rss       || 0) },
-                { label:'External Mem',  value: fmtBytes(mem.external  || 0) },
+                { label:'Uptime',      value: fmtUptime(metrics.uptime || 0) },
+                { label:'Heap Used',   value: fmtBytes(mem.heapUsed  || 0)   },
+                { label:'Heap Total',  value: fmtBytes(mem.heapTotal || 0)   },
+                { label:'RSS Memory',  value: fmtBytes(mem.rss       || 0)   },
+                { label:'External',    value: fmtBytes(mem.external  || 0)   },
             ];
             document.getElementById('metricsBody').innerHTML =
                 '<table class="a-table">' +
-                  '<thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>' +
-                  rows.map(function(r) {
-                      return '<tr>' +
-                          '<td style="color:var(--a-muted);font-size:.85rem">'+A.escHtml(r.label)+'</td>' +
-                          '<td style="font-family:var(--font-mono);font-weight:700">'+A.escHtml(r.value)+'</td>' +
-                      '</tr>';
-                  }).join('') +
-                  '</tbody></table>';
+                '<thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>' +
+                rows.map(function (r) {
+                    return '<tr>' +
+                        '<td style="color:var(--a-muted);font-size:.85rem;">' + Admin.escHtml(r.label) + '</td>' +
+                        '<td style="font-family:var(--font-mono);font-weight:700;">' + Admin.escHtml(r.value) + '</td>' +
+                    '</tr>';
+                }).join('') + '</tbody></table>';
 
-            // Config
-            var configHtml = Object.entries(services).map(function(entry) {
-                var key = entry[0], val = entry[1];
-                var ok  = val === 'healthy' || val === 'configured';
+            document.getElementById('configBody').innerHTML = Object.entries(services).map(function (entry) {
                 return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid var(--a-border);">' +
-                    '<span style="font-weight:600;text-transform:capitalize;">'+A.escHtml(key)+'</span>' +
-                    A.badge(val) +
+                    '<span style="font-weight:600;text-transform:capitalize;">' + Admin.escHtml(entry[0]) + '</span>' +
+                    Admin.badge(entry[1]) +
                 '</div>';
             }).join('');
-            document.getElementById('configBody').innerHTML = configHtml;
 
-        } catch (err) {
-            A.toast('Failed to load health: ' + err.message, 'error');
-        }
+        } catch (err) { Admin.toast('Health check failed: ' + err.message, 'error'); }
     }
 
     document.getElementById('refreshBtn').addEventListener('click', load);
-    load();
-
-    // Auto-refresh every 30s
     setInterval(load, 30000);
+    load();
 })();
 </script>
 
