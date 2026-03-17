@@ -1,0 +1,266 @@
+<%- include('./_layout_start') %>
+
+<!-- KPI tiles -->
+<div class="kpi-grid mb-4" id="kpiGrid">
+  <% [
+    {label:'Total Users',    icon:'bi-people',           color:'var(--a-accent)'},
+    {label:'New (period)',   icon:'bi-person-plus',       color:'var(--a-info)'},
+    {label:'Total Volume',   icon:'bi-currency-dollar',   color:'var(--a-success)'},
+    {label:'Transactions',   icon:'bi-arrow-left-right',  color:'var(--a-warning)'},
+    {label:'Pending KYC',    icon:'bi-shield-exclamation',color:'var(--a-accent)'},
+  ].forEach(function(t){ %>
+    <div class="kpi-tile" style="--tile-color:<%= t.color %>">
+      <div class="label"><%= t.label %></div>
+      <div class="value a-skeleton" style="height:36px;width:60%;border-radius:4px;"></div>
+      <div class="sub" style="margin-top:.35rem">Loading...</div>
+      <i class="bi <%= t.icon %> icon"></i>
+    </div>
+  <% }); %>
+</div>
+
+<div class="row g-3 mb-3">
+  <!-- Period selector -->
+  <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <h2 style="font-family:var(--font-mono);font-size:1rem;font-weight:700;color:#fff;">
+      Revenue Overview
+    </h2>
+    <div class="d-flex gap-2" id="periodBtns">
+      <% ['day','week','month','year'].forEach(function(p){ %>
+        <button class="a-btn a-btn-ghost a-btn-sm period-btn" data-period="<%= p %>">
+          <%= p.charAt(0).toUpperCase() + p.slice(1) %>
+        </button>
+      <% }); %>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Revenue chart -->
+  <div class="col-lg-8">
+    <div class="a-card">
+      <div class="a-card-header">
+        <span class="a-card-title">Daily Revenue (last 30 days)</span>
+        <span id="chartTotal" style="font-family:var(--font-mono);font-size:.85rem;color:var(--a-success);">—</span>
+      </div>
+      <div class="a-card-body" style="padding-bottom:.75rem;">
+        <canvas id="revenueChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction breakdown -->
+  <div class="col-lg-4">
+    <div class="a-card h-100">
+      <div class="a-card-header">
+        <span class="a-card-title">By Status</span>
+      </div>
+      <div class="a-card-body" id="statusBreakdown">
+        <div class="a-skeleton" style="height:160px;border-radius:8px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <!-- Recent users -->
+  <div class="col-lg-6">
+    <div class="a-card">
+      <div class="a-card-header">
+        <span class="a-card-title">Recent Users</span>
+        <a href="/admin/users" class="a-btn a-btn-ghost a-btn-sm">View all</a>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="a-table" id="recentUsersTable">
+          <thead>
+            <tr>
+              <th>Name</th><th>Email</th><th>Joined</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recentUsersTbody">
+            <%= `<tr>${Array(4).fill('<td><div class="a-skeleton" style="height:13px;border-radius:3px;"></div></td>').join('')}</tr>`.repeat(4) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent transactions -->
+  <div class="col-lg-6">
+    <div class="a-card">
+      <div class="a-card-header">
+        <span class="a-card-title">Recent Transactions</span>
+        <a href="/admin/transactions" class="a-btn a-btn-ghost a-btn-sm">View all</a>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="a-table">
+          <thead>
+            <tr><th>Ref</th><th>Amount</th><th>Type</th><th>Status</th></tr>
+          </thead>
+          <tbody id="recentTxTbody">
+            <%= `<tr>${Array(4).fill('<td><div class="a-skeleton" style="height:13px;border-radius:3px;"></div></td>').join('')}</tr>`.repeat(4) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(async function () {
+    var A       = window.Admin;
+    var period  = 'month';
+    var chart   = null;
+
+    // ── Highlight active period button ────────────────────────
+    function setPeriodUI() {
+        document.querySelectorAll('.period-btn').forEach(function(b) {
+            b.classList.toggle('a-btn-primary', b.dataset.period === period);
+            b.classList.toggle('a-btn-ghost',   b.dataset.period !== period);
+        });
+    }
+    setPeriodUI();
+
+    document.getElementById('periodBtns').addEventListener('click', function(e) {
+        var btn = e.target.closest('.period-btn');
+        if (btn) { period = btn.dataset.period; setPeriodUI(); loadStats(); }
+    });
+
+    // ── Load stats ────────────────────────────────────────────
+    async function loadStats() {
+        try {
+            var data = await A.get('/api/admin/stats?period=' + period);
+            var s    = data.stats;
+
+            // KPIs
+            var tiles = document.querySelectorAll('.kpi-tile');
+            var kpiData = [
+                { value: s.users.total,                        sub: 'registered accounts' },
+                { value: s.users.new,                          sub: 'this ' + period },
+                { value: A.fmtNaira(s.transactions.volume),   sub: 'total processed' },
+                { value: s.transactions.total,                 sub: 'all time' },
+                { value: (s.kyc.find(function(k){return k._id==='pending';})||{count:0}).count, sub: 'awaiting review', link: '/admin/kyc' },
+            ];
+            tiles.forEach(function(tile, i) {
+                var d = kpiData[i];
+                if (!d) return;
+                tile.querySelector('.value').outerHTML = '<div class="value">' + A.escHtml(String(d.value)) + '</div>';
+                tile.querySelector('.sub').textContent = d.sub;
+            });
+
+            // Revenue chart
+            var rev = (s.revenue || []).slice(-30);
+            renderChart(rev);
+
+            // Status breakdown
+            renderStatusBreakdown(s.transactions.byStatus || []);
+
+            // Recent users
+            var uRes = await A.get('/api/admin/users?limit=5&page=1');
+            renderRecentUsers(uRes.users || []);
+
+            // Recent transactions
+            var tRes = await A.get('/api/admin/transactions?limit=5&page=1');
+            renderRecentTx(tRes.transactions || []);
+
+        } catch (err) {
+            A.toast('Failed to load stats: ' + err.message, 'error');
+        }
+    }
+
+    // ── Revenue chart ─────────────────────────────────────────
+    function renderChart(rev) {
+        var labels  = rev.map(function(r){ return r._id; });
+        var volumes = rev.map(function(r){ return r.volume || 0; });
+        var total   = volumes.reduce(function(a,b){ return a+b; }, 0);
+        document.getElementById('chartTotal').textContent = A.fmtNaira(total);
+
+        var ctx = document.getElementById('revenueChart').getContext('2d');
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: volumes,
+                    backgroundColor: 'rgba(239,81,52,.25)',
+                    borderColor: 'rgba(239,81,52,.8)',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    hoverBackgroundColor: 'rgba(239,81,52,.5)',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: {
+                    backgroundColor: '#161e2e',
+                    borderColor: 'rgba(255,255,255,.08)',
+                    borderWidth: 1,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#94a3b8',
+                    callbacks: {
+                        label: function(ctx) { return ' ' + A.fmtNaira(ctx.raw); }
+                    }
+                }},
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 10 } },
+                    y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: function(v){ return A.fmtNaira(v); } } }
+                }
+            }
+        });
+    }
+
+    // ── Status breakdown ──────────────────────────────────────
+    function renderStatusBreakdown(byStatus) {
+        var total = byStatus.reduce(function(a,b){ return a + (b.count||0); }, 0);
+        var colors = { success:'var(--a-success)', pending:'var(--a-warning)', failed:'var(--a-danger)', processing:'var(--a-info)' };
+        var html = byStatus.map(function(s) {
+            var pct = total ? Math.round((s.count/total)*100) : 0;
+            var col = colors[s._id] || 'var(--a-muted)';
+            return '<div style="margin-bottom:.85rem">' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:.3rem">' +
+                    '<span style="font-size:.82rem;font-weight:600;color:var(--a-text)">' + A.escHtml(s._id||'—') + '</span>' +
+                    '<span style="font-family:var(--font-mono);font-size:.8rem;color:var(--a-muted)">' + s.count + ' &nbsp;(' + pct + '%)</span>' +
+                '</div>' +
+                '<div style="height:6px;background:var(--a-surface2);border-radius:99px;overflow:hidden">' +
+                    '<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:99px;transition:width .6s ease"></div>' +
+                '</div></div>';
+        }).join('');
+        document.getElementById('statusBreakdown').innerHTML = html || '<p style="color:var(--a-muted);font-size:.85rem">No data</p>';
+    }
+
+    // ── Recent users table ─────────────────────────────────────
+    function renderRecentUsers(users) {
+        var tbody = document.getElementById('recentUsersTbody');
+        if (!users.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--a-muted);padding:2rem">No users</td></tr>'; return; }
+        tbody.innerHTML = users.map(function(u) {
+            return '<tr>' +
+                '<td><a href="/admin/users/'+u._id+'" style="color:var(--a-accent);font-weight:600;text-decoration:none">'+A.escHtml(u.name||'—')+'</a></td>' +
+                '<td style="color:var(--a-muted);font-size:.82rem">'+A.escHtml(u.email||'')+'</td>' +
+                '<td style="font-size:.82rem">'+A.fmtDateShort(u.created_at)+'</td>' +
+                '<td>'+A.badge(u.isActive ? 'active' : 'inactive')+'</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    // ── Recent transactions table ──────────────────────────────
+    function renderRecentTx(txs) {
+        var tbody = document.getElementById('recentTxTbody');
+        if (!txs.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--a-muted);padding:2rem">No transactions</td></tr>'; return; }
+        tbody.innerHTML = txs.map(function(t) {
+            return '<tr>' +
+                '<td style="font-family:var(--font-mono);font-size:.78rem;color:var(--a-muted)">'+A.escHtml((t.reference||'').slice(-10))+'</td>' +
+                '<td style="font-weight:600;color:var(--a-success)">'+A.fmtNaira(t.amount)+'</td>' +
+                '<td style="font-size:.82rem;text-transform:capitalize">'+A.escHtml(t.type||'—')+'</td>' +
+                '<td>'+A.badge(t.status)+'</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    loadStats();
+})();
+</script>
+
+<%- include('./_layout_end') %>

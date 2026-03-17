@@ -1,0 +1,203 @@
+<%- include('./_layout_start') %>
+
+<div class="a-card">
+  <div class="a-card-header">
+    <span class="a-card-title">Pending KYC Submissions</span>
+    <span id="kycCount" style="font-size:.78rem;color:var(--a-muted);">Loading...</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th>ID Type</th>
+          <th>ID Number</th>
+          <th>Documents</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="kycTbody">
+        <tr><td colspan="7" style="padding:2rem;text-align:center;">
+          <div class="a-skeleton" style="height:14px;width:40%;margin:0 auto;border-radius:4px;"></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:1rem 1.25rem;border-top:1px solid var(--a-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;">
+    <div id="paginationInfo" style="font-size:.8rem;color:var(--a-muted);"></div>
+    <div id="paginationControls"></div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="a-modal-backdrop" id="rejectModal">
+  <div class="a-modal">
+    <div class="a-modal-title"><i class="bi bi-x-circle text-danger me-2"></i>Reject KYC</div>
+    <input type="hidden" id="rejectKycId">
+    <div>
+      <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Rejection Reason</label>
+      <textarea class="a-input" id="rejectReason" rows="3" placeholder="Explain why the KYC is rejected..."></textarea>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end;">
+      <button class="a-btn a-btn-ghost" id="closeRejectModal">Cancel</button>
+      <button class="a-btn a-btn-danger" id="confirmReject">
+        <i class="bi bi-x-circle"></i> Reject
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Document Preview Modal -->
+<div class="a-modal-backdrop" id="docModal">
+  <div class="a-modal" style="max-width:600px;">
+    <div class="a-modal-title" id="docModalTitle">Documents</div>
+    <div id="docModalBody" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-height:70vh;overflow-y:auto;"></div>
+    <div style="margin-top:1rem;text-align:right;">
+      <button class="a-btn a-btn-ghost" id="closeDocModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function () {
+    var A    = window.Admin;
+    var page = 1;
+
+    async function load(p) {
+        page = p || 1;
+        var tbody = document.getElementById('kycTbody');
+        tbody.innerHTML = A.skeleton(6, 7);
+
+        try {
+            var data   = await A.get('/api/admin/kyc/pending?page='+page+'&limit=20');
+            var kycs   = data.pending || [];
+            var pg     = data.pagination || {};
+
+            document.getElementById('kycCount').textContent = (pg.total || kycs.length) + ' pending';
+            document.getElementById('paginationInfo').textContent =
+                'Page '+(pg.page||1)+' of '+(pg.pages||1)+' · '+(pg.total||kycs.length)+' submissions';
+
+            if (!kycs.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:3rem;color:var(--a-muted);">' +
+                    '<i class="bi bi-shield-check" style="font-size:2.5rem;display:block;margin-bottom:.75rem;color:var(--a-success);"></i>' +
+                    'No pending KYC submissions — all clear!' +
+                    '</td></tr>';
+                document.getElementById('paginationControls').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = kycs.map(function(k) {
+                var user = k.user || {};
+                var docs = k.documents || {};
+                var docCount = [docs.id_front, docs.id_back, docs.selfie, docs.proof_of_address].filter(Boolean).length;
+                var docsStr = JSON.stringify(docs).replace(/"/g, '&quot;');
+                var userName = user.name || '—';
+
+                return '<tr>' +
+                    '<td><span style="font-weight:600;color:var(--a-text)">'+A.escHtml(userName)+'</span></td>' +
+                    '<td style="font-size:.82rem;color:var(--a-muted)">'+A.escHtml(user.email||'')+'</td>' +
+                    '<td style="font-size:.82rem">'+A.escHtml(docs.id_type||'—')+'</td>' +
+                    '<td style="font-family:var(--font-mono);font-size:.78rem;color:var(--a-muted)">'+A.escHtml(docs.id_number||'—')+'</td>' +
+                    '<td>' +
+                        '<button class="a-btn a-btn-ghost a-btn-sm btn-docs" ' +
+                            'data-docs="'+docsStr+'" ' +
+                            'data-name="'+A.escHtml(userName)+'">' +
+                            '<i class="bi bi-files"></i> '+docCount+' doc'+(docCount!==1?'s':'') +
+                        '</button>' +
+                    '</td>' +
+                    '<td style="font-size:.8rem;color:var(--a-muted)">'+A.fmtDateShort(k.submitted_at)+'</td>' +
+                    '<td>' +
+                        '<div style="display:flex;gap:.35rem;">' +
+                            '<button class="a-btn a-btn-success a-btn-sm btn-verify" data-id="'+k.id+'" data-name="'+A.escHtml(userName)+'"><i class="bi bi-check-circle"></i> Verify</button>' +
+                            '<button class="a-btn a-btn-danger  a-btn-sm btn-reject"  data-id="'+k.id+'"><i class="bi bi-x-circle"></i> Reject</button>' +
+                        '</div>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+
+            var ctrl = document.getElementById('paginationControls');
+            ctrl.innerHTML = '';
+            ctrl.appendChild(A.buildPagination(pg, load));
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--a-danger);">'+A.escHtml(err.message)+'</td></tr>';
+            A.toast(err.message, 'error');
+        }
+    }
+
+    // ── Verify ────────────────────────────────────────────────
+    document.getElementById('kycTbody').addEventListener('click', async function(e) {
+        var btn = e.target.closest('.btn-verify');
+        if (!btn) return;
+        if (!confirm('Verify KYC for ' + btn.dataset.name + '?')) return;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.8rem;height:.8rem;border-width:2px;"></span>';
+        try {
+            await A.post('/api/admin/kyc/' + btn.dataset.id + '/verify', {});
+            A.toast('KYC verified', 'success');
+            load(page);
+        } catch (err) { A.toast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-circle"></i> Verify'; }
+    });
+
+    // ── Reject modal ──────────────────────────────────────────
+    document.getElementById('kycTbody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-reject');
+        if (!btn) return;
+        document.getElementById('rejectKycId').value = btn.dataset.id;
+        document.getElementById('rejectReason').value = '';
+        document.getElementById('rejectModal').classList.add('open');
+    });
+    document.getElementById('closeRejectModal').addEventListener('click', function(){ document.getElementById('rejectModal').classList.remove('open'); });
+
+    document.getElementById('confirmReject').addEventListener('click', async function() {
+        var id     = document.getElementById('rejectKycId').value;
+        var reason = document.getElementById('rejectReason').value.trim();
+        if (!reason) { A.toast('Please provide a rejection reason', 'error'); return; }
+        var btn = this;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.8rem;height:.8rem;border-width:2px;"></span>';
+        try {
+            await A.post('/api/admin/kyc/' + id + '/reject', { reason });
+            A.toast('KYC rejected', 'info');
+            document.getElementById('rejectModal').classList.remove('open');
+            load(page);
+        } catch (err) { A.toast(err.message, 'error'); }
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-x-circle"></i> Reject';
+    });
+
+    // ── Document preview ──────────────────────────────────────
+    document.getElementById('kycTbody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-docs');
+        if (!btn) return;
+        var docs = {};
+        try { docs = JSON.parse(btn.dataset.docs); } catch(err) {}
+        document.getElementById('docModalTitle').textContent = 'Documents — ' + (btn.dataset.name || '');
+
+        var docLabels = { id_front:'ID Front', id_back:'ID Back', selfie:'Selfie', proof_of_address:'Proof of Address' };
+        var html = Object.entries(docLabels).map(function(entry) {
+            var key = entry[0], label = entry[1];
+            var path = docs[key];
+            if (!path) return '';
+            var isPdf = path.toLowerCase().endsWith('.pdf');
+            return '<div>' +
+                '<div style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);margin-bottom:.35rem;">'+label+'</div>' +
+                (isPdf
+                    ? '<a href="'+path+'" target="_blank" class="a-btn a-btn-ghost" style="width:100%;justify-content:center;">'+
+                        '<i class="bi bi-file-earmark-pdf"></i> View PDF</a>'
+                    : '<a href="'+path+'" target="_blank">' +
+                        '<img src="'+path+'" style="width:100%;border-radius:6px;border:1px solid var(--a-border);" loading="lazy" onerror="this.style.display=\'none\'">' +
+                      '</a>'
+                ) +
+            '</div>';
+        }).join('');
+
+        document.getElementById('docModalBody').innerHTML = html || '<p style="color:var(--a-muted);">No documents uploaded.</p>';
+        document.getElementById('docModal').classList.add('open');
+    });
+    document.getElementById('closeDocModal').addEventListener('click', function(){ document.getElementById('docModal').classList.remove('open'); });
+
+    load(1);
+})();
+</script>
+
+<%- include('./_layout_end') %>

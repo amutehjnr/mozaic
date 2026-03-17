@@ -316,6 +316,18 @@ connectDB().then(() => {
         res.send('✅ Server test route working!');
     });
 
+    // Add this block to server.js alongside the other route loaders
+    // (after the dashboard routes block, before the 404 handler)
+
+    console.log('📂 Loading admin routes...');
+    try {
+       const adminRoutes = require('./src/routes/web/admin');
+       app.use('/admin', adminRoutes);
+       console.log('✅ Admin routes loaded successfully');
+    } catch (error) {
+      console.error('❌ Failed to load admin routes:', error.message);
+    }
+
     // ==================== 404 Handler ====================
     app.use((req, res) => {
         if (req.xhr || req.path.startsWith('/api/')) {

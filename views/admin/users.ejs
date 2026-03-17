@@ -1,0 +1,288 @@
+<%- include('./_layout_start') %>
+
+<!-- Filters -->
+<div class="a-card mb-3">
+  <div class="a-card-body" style="padding:.85rem 1.25rem;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:.75rem;align-items:end;">
+      <div>
+        <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Search</label>
+        <input class="a-input" id="searchInput" placeholder="Name, email, phone..." type="text">
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Role</label>
+        <select class="a-select" id="roleFilter">
+          <option value="">All Roles</option>
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Status</label>
+        <select class="a-select" id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--a-muted);display:block;margin-bottom:.35rem;">Joined from</label>
+        <input class="a-input" id="fromFilter" type="date">
+      </div>
+      <button class="a-btn a-btn-primary" id="searchBtn" style="align-self:end;">
+        <i class="bi bi-search"></i> Search
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="a-card">
+  <div class="a-card-header">
+    <span class="a-card-title">Users</span>
+    <span id="userCount" style="font-size:.78rem;color:var(--a-muted);">Loading...</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Role</th>
+          <th>Wallet</th>
+          <th>KYC</th>
+          <th>Joined</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersTbody">
+        <tr><td colspan="9" style="padding:2rem;text-align:center;">
+          <div class="a-skeleton" style="height:14px;width:40%;margin:0 auto;border-radius:4px;"></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:1rem 1.25rem;border-top:1px solid var(--a-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;">
+    <div id="paginationInfo" style="font-size:.8rem;color:var(--a-muted);"></div>
+    <div id="paginationControls"></div>
+  </div>
+</div>
+
+<!-- Wallet Adjust Modal -->
+<div class="a-modal-backdrop" id="walletModal">
+  <div class="a-modal">
+    <div class="a-modal-title"><i class="bi bi-wallet2 text-accent me-2"></i>Adjust Wallet</div>
+    <input type="hidden" id="adjustUserId">
+    <div style="display:grid;gap:.85rem;">
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">User</label>
+        <div id="adjustUserName" style="font-weight:600;color:var(--a-text);">—</div>
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Type</label>
+        <select class="a-select" id="adjustType">
+          <option value="credit">Credit (Add funds)</option>
+          <option value="debit">Debit (Remove funds)</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Amount (₦)</label>
+        <input class="a-input" id="adjustAmount" type="number" min="1" placeholder="Enter amount">
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Reason</label>
+        <input class="a-input" id="adjustReason" type="text" placeholder="Brief reason for adjustment">
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end;">
+      <button class="a-btn a-btn-ghost" id="closeWalletModal">Cancel</button>
+      <button class="a-btn a-btn-primary" id="confirmAdjust">
+        <i class="bi bi-check2"></i> Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Role Edit Modal -->
+<div class="a-modal-backdrop" id="roleModal">
+  <div class="a-modal">
+    <div class="a-modal-title"><i class="bi bi-person-gear text-accent me-2"></i>Edit User</div>
+    <input type="hidden" id="editUserId">
+    <div style="display:grid;gap:.85rem;">
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Role</label>
+        <select class="a-select" id="editRole">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.78rem;font-weight:600;color:var(--a-muted);display:block;margin-bottom:.35rem;">Status</label>
+        <select class="a-select" id="editStatus">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end;">
+      <button class="a-btn a-btn-ghost" id="closeRoleModal">Cancel</button>
+      <button class="a-btn a-btn-primary" id="confirmEdit">
+        <i class="bi bi-check2"></i> Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function () {
+    var A    = window.Admin;
+    var page = 1;
+    var params = {};
+
+    function getFilters() {
+        return {
+            search: document.getElementById('searchInput').value.trim(),
+            role:   document.getElementById('roleFilter').value,
+            status: document.getElementById('statusFilter').value,
+            from:   document.getElementById('fromFilter').value,
+        };
+    }
+
+    async function loadUsers(p) {
+        page = p || 1;
+        var f = getFilters();
+        var qs = '?page='+page+'&limit=20';
+        if (f.search) qs += '&search='+encodeURIComponent(f.search);
+        if (f.role)   qs += '&role='+f.role;
+        if (f.status) qs += '&status='+f.status;
+        if (f.from)   qs += '&from='+f.from;
+
+        var tbody = document.getElementById('usersTbody');
+        tbody.innerHTML = A.skeleton(8, 9);
+
+        try {
+            var data = await A.get('/api/admin/users' + qs);
+            var users = data.users || [];
+            var pg    = data.pagination || {};
+
+            document.getElementById('userCount').textContent = pg.total + ' total';
+            document.getElementById('paginationInfo').textContent =
+                'Page ' + pg.page + ' of ' + pg.pages + ' · ' + pg.total + ' users';
+
+            if (!users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:3rem;color:var(--a-muted);">No users found</td></tr>';
+                document.getElementById('paginationControls').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = users.map(function(u) {
+                var walletBal = u.wallet ? A.fmtNaira(u.wallet.balance) : '—';
+                var kycStatus = u.kyc ? u.kyc.status : 'none';
+                return '<tr>' +
+                    '<td><a href="/admin/users/'+u._id+'" style="color:var(--a-accent);font-weight:600;text-decoration:none;">'+A.escHtml(u.name||'—')+'</a></td>' +
+                    '<td style="font-size:.82rem;color:var(--a-muted);">'+A.escHtml(u.email||'')+'</td>' +
+                    '<td style="font-size:.82rem;">'+A.escHtml(u.phone||'—')+'</td>' +
+                    '<td><span style="font-family:var(--font-mono);font-size:.75rem;background:rgba(255,255,255,.06);padding:.15rem .45rem;border-radius:4px;">'+A.escHtml(u.role||'user')+'</span></td>' +
+                    '<td style="font-family:var(--font-mono);font-size:.82rem;color:var(--a-success);">'+walletBal+'</td>' +
+                    '<td>'+A.badge(kycStatus)+'</td>' +
+                    '<td style="font-size:.8rem;color:var(--a-muted);">'+A.fmtDateShort(u.created_at)+'</td>' +
+                    '<td>'+A.badge(u.isActive ? 'active' : 'inactive')+'</td>' +
+                    '<td>' +
+                        '<div style="display:flex;gap:.35rem;">' +
+                            '<button class="a-btn a-btn-ghost a-btn-sm btn-wallet" data-id="'+u._id+'" data-name="'+A.escHtml(u.name||'')+'" title="Adjust wallet"><i class="bi bi-wallet2"></i></button>' +
+                            '<button class="a-btn a-btn-ghost a-btn-sm btn-edit" data-id="'+u._id+'" data-role="'+(u.role||'user')+'" data-active="'+(u.isActive?'true':'false')+'" title="Edit"><i class="bi bi-pencil"></i></button>' +
+                            '<a href="/admin/users/'+u._id+'" class="a-btn a-btn-ghost a-btn-sm" title="View detail"><i class="bi bi-eye"></i></a>' +
+                        '</div>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+
+            // Pagination
+            var ctrl = document.getElementById('paginationControls');
+            ctrl.innerHTML = '';
+            ctrl.appendChild(A.buildPagination(pg, loadUsers));
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--a-danger);">'+A.escHtml(err.message)+'</td></tr>';
+            A.toast(err.message, 'error');
+        }
+    }
+
+    // Search button + enter
+    document.getElementById('searchBtn').addEventListener('click', function(){ loadUsers(1); });
+    document.getElementById('searchInput').addEventListener('keydown', function(e){ if(e.key==='Enter') loadUsers(1); });
+
+    // ── Wallet adjust ─────────────────────────────────────────
+    document.getElementById('usersTbody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-wallet');
+        if (!btn) return;
+        document.getElementById('adjustUserId').value = btn.dataset.id;
+        document.getElementById('adjustUserName').textContent = btn.dataset.name;
+        document.getElementById('adjustAmount').value = '';
+        document.getElementById('adjustReason').value = '';
+        document.getElementById('walletModal').classList.add('open');
+    });
+    document.getElementById('closeWalletModal').addEventListener('click', function(){ document.getElementById('walletModal').classList.remove('open'); });
+
+    document.getElementById('confirmAdjust').addEventListener('click', async function() {
+        var userId = document.getElementById('adjustUserId').value;
+        var amount = parseFloat(document.getElementById('adjustAmount').value);
+        var type   = document.getElementById('adjustType').value;
+        var reason = document.getElementById('adjustReason').value.trim();
+
+        if (!amount || amount <= 0) { A.toast('Enter a valid amount', 'error'); return; }
+        if (!reason)                { A.toast('Reason is required', 'error');  return; }
+
+        var btn = this;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:.9rem;height:.9rem;border-width:2px;"></span>Processing...';
+
+        try {
+            await A.post('/api/admin/wallet/adjust', { userId, amount, type, reason });
+            A.toast('Wallet adjusted successfully', 'success');
+            document.getElementById('walletModal').classList.remove('open');
+            loadUsers(page);
+        } catch (err) {
+            A.toast(err.message, 'error');
+        }
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2"></i> Confirm';
+    });
+
+    // ── Role / status edit ────────────────────────────────────
+    document.getElementById('usersTbody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-edit');
+        if (!btn) return;
+        document.getElementById('editUserId').value   = btn.dataset.id;
+        document.getElementById('editRole').value     = btn.dataset.role || 'user';
+        document.getElementById('editStatus').value   = btn.dataset.active || 'true';
+        document.getElementById('roleModal').classList.add('open');
+    });
+    document.getElementById('closeRoleModal').addEventListener('click', function(){ document.getElementById('roleModal').classList.remove('open'); });
+
+    document.getElementById('confirmEdit').addEventListener('click', async function() {
+        var id       = document.getElementById('editUserId').value;
+        var role     = document.getElementById('editRole').value;
+        var isActive = document.getElementById('editStatus').value === 'true';
+
+        var btn = this;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:.9rem;height:.9rem;border-width:2px;"></span>Saving...';
+
+        try {
+            await A.put('/api/admin/users/' + id, { role, isActive });
+            A.toast('User updated', 'success');
+            document.getElementById('roleModal').classList.remove('open');
+            loadUsers(page);
+        } catch (err) {
+            A.toast(err.message, 'error');
+        }
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2"></i> Save';
+    });
+
+    // Initial load
+    loadUsers(1);
+})();
+</script>
+
+<%- include('./_layout_end') %>
