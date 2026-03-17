@@ -68,7 +68,6 @@ class AdminController {
 
             res.render('admin/dashboard', {
                 title: 'Admin Dashboard',
-                layout: 'layouts/admin',
                 stats: {
                     totalUsers,
                     activeUsers,

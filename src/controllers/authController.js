@@ -5,14 +5,24 @@ const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const emailService = require('../services/emailService');
-const smsService = require('../services/smsService');
 const { generateToken, verifyToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
+/**
+ * Returns the correct post-login redirect URL based on user role.
+ * Admins and superadmins go to the admin panel.
+ * Everyone else goes to the user dashboard.
+ */
+function redirectForRole(role) {
+    return (role === 'admin' || role === 'superadmin')
+        ? '/admin/dashboard'
+        : '/dashboard/user';
+}
+
 class AuthController {
-    /**
-     * Show login/register page
-     */
+
+    // ── Pages ──────────────────────────────────────────────────────────────────
+
     showAuthPage(req, res) {
         const isLogin = req.path === '/login';
         res.render('auth/index', {
@@ -25,9 +35,6 @@ class AuthController {
         });
     }
 
-    /**
-     * Show forgot password page
-     */
     showForgotPage(req, res) {
         res.render('auth/forgot', {
             title:         'Forgot Password',
@@ -38,12 +45,8 @@ class AuthController {
         });
     }
 
-    /**
-     * Show reset password page
-     */
     async showResetPage(req, res) {
         const { token } = req.query;
-
         if (!token) {
             req.flash('error', 'Invalid reset link');
             return res.redirect('/auth/forgot');
@@ -52,7 +55,7 @@ class AuthController {
         const resetRequest = await PasswordReset.findOne({
             token,
             expires_at: { $gt: new Date() },
-            used:       false,
+            used: false,
         }).populate('user_id');
 
         if (!resetRequest) {
@@ -71,9 +74,8 @@ class AuthController {
         });
     }
 
-    /**
-     * Register new user (web)
-     */
+    // ── Web: Register ──────────────────────────────────────────────────────────
+
     async registerWeb(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -113,11 +115,11 @@ class AuthController {
             );
 
             if (req.xhr || req.headers.accept === 'application/json') {
-                return res.json({ ok: true, redirect: '/dashboard/user', user: user.getPublicProfile() });
+                return res.json({ ok: true, redirect: redirectForRole(user.role), user: user.getPublicProfile() });
             }
 
             req.flash('success', 'Welcome to MozAic! 🎉');
-            res.redirect('/dashboard/user');
+            res.redirect(redirectForRole(user.role));
         } catch (error) {
             logger.error('Registration error:', error);
             if (req.xhr || req.headers.accept === 'application/json') {
@@ -128,9 +130,8 @@ class AuthController {
         }
     }
 
-    /**
-     * Login user (web)
-     */
+    // ── Web: Login ─────────────────────────────────────────────────────────────
+
     async loginWeb(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -162,9 +163,9 @@ class AuthController {
                 return res.redirect('/auth/login');
             }
 
-            user.lastLogin    = new Date();
-            user.lastLoginIP  = req.ip;
-            user.loginCount  += 1;
+            user.lastLogin   = new Date();
+            user.lastLoginIP = req.ip;
+            user.loginCount += 1;
             await user.save();
 
             req.session.userId = user._id;
@@ -174,12 +175,14 @@ class AuthController {
                 req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
             }
 
+            // FIX: redirect based on role
+            const redirectUrl = redirectForRole(user.role);
+
             if (req.xhr || req.headers.accept === 'application/json') {
-                return res.json({ ok: true, redirect: '/dashboard/user', user: user.getPublicProfile() });
+                return res.json({ ok: true, redirect: redirectUrl, user: user.getPublicProfile() });
             }
 
-            req.flash('success', 'Logged in successfully');
-            res.redirect('/dashboard/user');
+            res.redirect(redirectUrl);
         } catch (error) {
             logger.error('Login error:', error);
             if (req.xhr || req.headers.accept === 'application/json') {
@@ -190,9 +193,8 @@ class AuthController {
         }
     }
 
-    /**
-     * Logout user (web)
-     */
+    // ── Web: Logout ────────────────────────────────────────────────────────────
+
     logoutWeb(req, res) {
         req.session.destroy((err) => {
             if (err) logger.error('Logout error:', err);
@@ -200,9 +202,8 @@ class AuthController {
         });
     }
 
-    /**
-     * Process forgot password (web)
-     */
+    // ── Web: Forgot password ───────────────────────────────────────────────────
+
     async forgotWeb(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -226,11 +227,10 @@ class AuthController {
                 });
             }
 
-            if (result.success) {
-                req.flash('success', 'Reset email sent. Check your inbox.');
-            } else {
-                req.flash('success', `Reset link created. (Dev: ${result.link})`);
-            }
+            req.flash('success', result.success
+                ? 'Reset email sent. Check your inbox.'
+                : `Reset link: ${result.link}`
+            );
             res.redirect('/auth/forgot');
         } catch (error) {
             logger.error('Forgot password error:', error);
@@ -242,9 +242,8 @@ class AuthController {
         }
     }
 
-    /**
-     * Reset password (web)
-     */
+    // ── Web: Reset password ────────────────────────────────────────────────────
+
     async resetPasswordWeb(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -261,7 +260,7 @@ class AuthController {
             const resetRequest = await PasswordReset.findOne({
                 token,
                 expires_at: { $gt: new Date() },
-                used:       false,
+                used: false,
             });
 
             if (!resetRequest) {
@@ -304,9 +303,8 @@ class AuthController {
         }
     }
 
-    /**
-     * API: Register user
-     */
+    // ── API: Register ──────────────────────────────────────────────────────────
+
     async register(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -337,16 +335,15 @@ class AuthController {
                 logger.error('Failed to send welcome email:', err)
             );
 
-            res.json({ ok: true, redirect: '/dashboard/user', user: user.getPublicProfile() });
+            res.json({ ok: true, redirect: redirectForRole(user.role), user: user.getPublicProfile() });
         } catch (error) {
             logger.error('API Registration error:', error);
             res.status(500).json({ ok: false, error: 'Server error' });
         }
     }
 
-    /**
-     * API: Login user
-     */
+    // ── API: Login ─────────────────────────────────────────────────────────────
+
     async login(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -374,16 +371,16 @@ class AuthController {
             req.session.userId = user._id;
             req.session.user   = user.getPublicProfile();
 
-            res.json({ ok: true, redirect: '/dashboard/user', user: user.getPublicProfile() });
+            // FIX: redirect based on role
+            res.json({ ok: true, redirect: redirectForRole(user.role), user: user.getPublicProfile() });
         } catch (error) {
             logger.error('API Login error:', error);
             res.status(500).json({ ok: false, error: 'Server error' });
         }
     }
 
-    /**
-     * API: Logout user
-     */
+    // ── API: Logout ────────────────────────────────────────────────────────────
+
     logout(req, res) {
         req.session.destroy((err) => {
             if (err) return res.status(500).json({ ok: false, error: 'Logout failed' });
@@ -391,9 +388,8 @@ class AuthController {
         });
     }
 
-    /**
-     * API: Forgot password
-     */
+    // ── API: Forgot password ───────────────────────────────────────────────────
+
     async forgot(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -416,9 +412,8 @@ class AuthController {
         }
     }
 
-    /**
-     * API: Reset password
-     */
+    // ── API: Reset password ────────────────────────────────────────────────────
+
     async resetPassword(req, res) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -431,7 +426,7 @@ class AuthController {
             const resetRequest = await PasswordReset.findOne({
                 token,
                 expires_at: { $gt: new Date() },
-                used:       false,
+                used: false,
             });
 
             if (!resetRequest) {
@@ -457,9 +452,8 @@ class AuthController {
         }
     }
 
-    /**
-     * Shared password reset logic
-     */
+    // ── Shared: Process password reset ────────────────────────────────────────
+
     async processPasswordReset(email, req = null) {
         try {
             const user       = await User.findOne({ email });
@@ -480,8 +474,8 @@ class AuthController {
 
             let emailSent = false;
             if (user) {
-                const emailResult = await emailService.sendPasswordResetEmail(email, resetLink);
-                emailSent = emailResult.success;
+                const result = await emailService.sendPasswordResetEmail(email, resetLink);
+                emailSent = result.success;
             }
 
             return { success: emailSent, link: resetLink, email };
@@ -493,9 +487,8 @@ class AuthController {
         }
     }
 
-    /**
-     * Verify email
-     */
+    // ── Email verification (stub) ──────────────────────────────────────────────
+
     async verifyEmail(req, res) {
         const { token } = req.query;
         if (!token) {
