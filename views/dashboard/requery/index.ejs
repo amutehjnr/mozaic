@@ -1,7 +1,6 @@
 <%
-const user        = typeof userData !== 'undefined' ? userData : { id: 0, name: '', email: '' };
-const _csrf       = typeof csrfToken !== 'undefined' ? csrfToken : '';
-const queryParams = typeof queryParams !== 'undefined' ? queryParams : {};
+const user  = typeof userData !== 'undefined' ? userData : { id: 0, name: '', email: '' };
+const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
 %>
 <%- include('../../partials/header') %>
 
