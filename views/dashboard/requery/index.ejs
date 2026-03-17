@@ -13,27 +13,23 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
   .nav-link { color:rgba(255,255,255,.8)!important; font-weight:500; }
   .nav-link:hover,.nav-link.active { color:white!important; }
   #header { position:relative; padding:3rem 0; margin-bottom:2rem;
-    background:linear-gradient(to right,rgba(11,18,32,.95),rgba(11,18,32,.7)); }
+    background:linear-gradient(135deg,#0b1220,#1a2639); }
   #header .container { position:relative; z-index:1; color:white; }
-  .card { border:none; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:all .2s; }
-  .card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+  .card { border:none; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
   .btn-theme { background:var(--jn-primary); border:none; border-radius:10px; font-weight:600;
     padding:.6rem 1.5rem; color:white; transition:all .2s; }
   .btn-theme:hover { background:var(--jn-primary-600); transform:translateY(-2px); color:white; }
-  .form-control,.form-select { border-radius:10px; border:1px solid #e2e8f0; }
-  .form-control:focus,.form-select:focus { border-color:var(--jn-primary);
-    box-shadow:0 0 0 3px rgba(239,81,52,.15); }
-  .badge-soft { padding:.35rem .75rem; border-radius:100px; font-size:.85rem; font-weight:500; }
+  .form-control { border-radius:10px; border:1px solid #e2e8f0; }
+  .form-control:focus { border-color:var(--jn-primary); box-shadow:0 0 0 3px rgba(239,81,52,.15); }
+  .badge-soft { padding:.3rem .7rem; border-radius:100px; font-size:.82rem; font-weight:600; }
   .badge-soft-success  { background:#dcfce7; color:#166534; }
   .badge-soft-warning  { background:#fef9c3; color:#854d0e; }
   .badge-soft-danger   { background:#fee2e2; color:#991b1b; }
   .badge-soft-info     { background:#e0f2fe; color:#075985; }
   .badge-soft-secondary{ background:#f1f5f9; color:#334155; }
   .result-card { border-left:4px solid var(--jn-primary); }
-  .status-guide-item { padding:.6rem 0; border-bottom:1px solid #f1f5f9; }
-  .status-guide-item:last-child { border-bottom:none; }
-  .recent-item { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; cursor:pointer;
-    transition:background .15s; }
+  .recent-item { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9;
+    cursor:pointer; transition:background .15s; }
   .recent-item:hover { background:#f8fafc; }
   .recent-item:last-child { border-bottom:none; }
   .spinner-border-sm { width:1rem; height:1rem; border-width:2px; }
@@ -87,10 +83,9 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
   <div class="container">
     <div class="row g-4">
 
-      <!-- Main content -->
       <div class="col-lg-8">
 
-        <!-- Search form -->
+        <!-- Search -->
         <div class="card p-4 mb-4">
           <h5 class="fw-bold mb-3">
             <i class="bi bi-search me-2 text-primary"></i>Check Transaction Status
@@ -98,7 +93,7 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
           <div class="row g-3">
             <div class="col-md-9">
               <input type="text" class="form-control form-control-lg" id="refInput"
-                     placeholder="Enter transaction reference e.g. FLW_1234..." value="">
+                     placeholder="Enter transaction reference e.g. FLW_...">
             </div>
             <div class="col-md-3">
               <button class="btn btn-theme w-100 btn-lg" id="checkBtn">
@@ -106,22 +101,20 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
               </button>
             </div>
           </div>
-          <div class="mt-2">
-            <small class="text-muted">Find your reference in Transaction History or your receipt</small>
-          </div>
+          <small class="text-muted mt-2 d-block">Find your reference in Transaction History or your receipt</small>
         </div>
 
-        <!-- Result card (hidden until search) -->
+        <!-- Result -->
         <div class="card p-4 result-card mb-4" id="resultCard" style="display:none;">
           <div class="d-flex align-items-start gap-3">
             <div id="resultIcon" style="font-size:2.5rem;line-height:1;flex-shrink:0;"></div>
             <div class="flex-grow-1">
-              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                 <div>
                   <h5 class="fw-bold mb-1" id="resultTitle">—</h5>
                   <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="badge-soft" id="resultBadge">—</span>
-                    <small class="text-muted" id="resultRef"></small>
+                    <small class="text-muted mono" id="resultRef"></small>
                   </div>
                 </div>
                 <div class="text-end">
@@ -129,19 +122,15 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
                   <div class="h5 fw-bold mb-0" id="resultAmount">—</div>
                 </div>
               </div>
-
-              <!-- Transaction details -->
               <div class="bg-light rounded-3 p-3 mb-3" id="resultDetails" style="display:none;">
                 <div class="row g-2" id="resultDetailsGrid"></div>
               </div>
-
-              <!-- Action buttons -->
               <div class="d-flex gap-2 flex-wrap" id="resultActions"></div>
             </div>
           </div>
         </div>
 
-        <!-- Help card -->
+        <!-- Help -->
         <div class="card p-4 bg-light border-0">
           <h6 class="fw-bold mb-3"><i class="bi bi-question-circle me-2 text-primary"></i>About Requery</h6>
           <div class="row g-3">
@@ -150,7 +139,7 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
                 <i class="bi bi-1-circle-fill text-primary mt-1"></i>
                 <div>
                   <strong class="d-block small">When to use?</strong>
-                  <span class="text-muted small">If a payment shows as pending for more than 5 minutes or failed unexpectedly</span>
+                  <span class="text-muted small">Payment pending over 5 minutes or failed unexpectedly</span>
                 </div>
               </div>
             </div>
@@ -159,7 +148,7 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
                 <i class="bi bi-2-circle-fill text-primary mt-1"></i>
                 <div>
                   <strong class="d-block small">What happens?</strong>
-                  <span class="text-muted small">We verify directly with Flutterwave and credit your wallet if payment was successful</span>
+                  <span class="text-muted small">We check with Flutterwave and credit your wallet if successful</span>
                 </div>
               </div>
             </div>
@@ -169,14 +158,12 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
 
       <!-- Sidebar -->
       <div class="col-lg-4">
-
-        <!-- Recent transactions -->
         <div class="card mb-4">
           <div class="card-header bg-white fw-bold py-3">
             <i class="bi bi-clock-history me-2 text-primary"></i>Recent Transactions
           </div>
           <div id="recentList">
-            <div class="text-center py-4 text-muted">
+            <div class="text-center py-4 text-muted small">
               <div class="spinner-border spinner-border-sm me-2"></div> Loading...
             </div>
           </div>
@@ -185,25 +172,19 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
           </div>
         </div>
 
-        <!-- Status guide -->
         <div class="card p-3">
           <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2 text-primary"></i>Status Guide</h6>
-          <div class="status-guide-item d-flex align-items-center justify-content-between">
-            <span class="badge-soft badge-soft-success">Success</span>
-            <small class="text-muted">Transaction completed</small>
-          </div>
-          <div class="status-guide-item d-flex align-items-center justify-content-between">
-            <span class="badge-soft badge-soft-warning">Pending</span>
-            <small class="text-muted">Awaiting confirmation</small>
-          </div>
-          <div class="status-guide-item d-flex align-items-center justify-content-between">
-            <span class="badge-soft badge-soft-danger">Failed</span>
-            <small class="text-muted">Transaction failed</small>
-          </div>
-          <div class="status-guide-item d-flex align-items-center justify-content-between">
-            <span class="badge-soft badge-soft-info">Processing</span>
-            <small class="text-muted">Being processed</small>
-          </div>
+          <% [
+            ['success',   'badge-soft-success',   'Transaction completed'],
+            ['pending',   'badge-soft-warning',   'Awaiting confirmation'],
+            ['failed',    'badge-soft-danger',    'Transaction failed'],
+            ['processing','badge-soft-info',      'Being processed'],
+          ].forEach(function(row){ %>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f1f5f9;">
+              <span class="badge-soft <%= row[1] %>"><%= row[0] %></span>
+              <small class="text-muted"><%= row[2] %></small>
+            </div>
+          <% }); %>
         </div>
       </div>
 
@@ -211,7 +192,6 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
   </div>
 </main>
 
-<!-- Toast container -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -221,7 +201,49 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
 
     var CSRF = '<%= _csrf %>';
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Safe fetch — never throws on non-JSON responses ────────────────────────
+    // Returns { ok, status, data } where data is always an object.
+    // If server returns HTML (redirect/error page), data.error describes it.
+    async function safeFetch(method, url, body) {
+        var opts = {
+            method:      method,
+            credentials: 'same-origin',
+            headers:     { 'Accept': 'application/json', 'X-CSRF-Token': CSRF }
+        };
+
+        if (body) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+
+        var res;
+        try {
+            res = await fetch(url, opts);
+        } catch (networkErr) {
+            return { ok: false, status: 0, data: { error: 'Network error: ' + networkErr.message } };
+        }
+
+        // Guard against non-JSON responses (HTML redirect pages etc.)
+        var contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            return {
+                ok:     false,
+                status: res.status,
+                data:   { error: 'Server returned an unexpected response (HTTP ' + res.status + '). You may need to log in again.' }
+            };
+        }
+
+        var data;
+        try {
+            data = await res.json();
+        } catch (parseErr) {
+            return { ok: false, status: res.status, data: { error: 'Invalid JSON from server' } };
+        }
+
+        return { ok: res.ok && data.ok !== false, status: res.status, data: data };
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────────
 
     function esc(s) {
         var d = document.createElement('div');
@@ -230,156 +252,127 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
     }
 
     function fmtNaira(n) {
-        return '₦' + Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '\u20a6' + Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function fmtDate(d) {
-        if (!d) return '—';
+        if (!d) return '\u2014';
         var dt = new Date(d);
         if (isNaN(dt.getTime())) return String(d);
         return dt.toLocaleString('en-NG', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
     }
 
-    function capitalize(s) {
-        if (!s || typeof s !== 'string') return s || '—';
+    function cap(s) {
+        if (!s || typeof s !== 'string' || !s.length) return s || '\u2014';
         return s.charAt(0).toUpperCase() + s.slice(1);
     }
 
-    function statusBadgeClass(status) {
+    function badgeCls(status) {
         var map = {
-            success:    'badge-soft-success',
-            pending:    'badge-soft-warning',
-            processing: 'badge-soft-info',
-            failed:     'badge-soft-danger',
-            reversed:   'badge-soft-secondary',
-            queued:     'badge-soft-secondary'
+            success:'badge-soft-success', active:'badge-soft-success',
+            pending:'badge-soft-warning', processing:'badge-soft-info',
+            failed:'badge-soft-danger',   reversed:'badge-soft-secondary',
+            queued:'badge-soft-secondary'
         };
-        return 'badge-soft ' + (map[(status || '').toLowerCase()] || 'badge-soft-secondary');
+        return 'badge-soft ' + (map[(status||'').toLowerCase()] || 'badge-soft-secondary');
     }
 
-    function statusIcon(status) {
-        var map = {
-            success:    '✅',
-            pending:    '⏳',
-            processing: '🔄',
-            failed:     '❌',
-            reversed:   '↩️',
-            queued:     '📋'
-        };
-        return map[(status || '').toLowerCase()] || '❓';
+    function statusEmoji(status) {
+        return { success:'✅', pending:'⏳', processing:'🔄', failed:'❌', reversed:'↩️' }[(status||'').toLowerCase()] || '❓';
     }
 
     function showToast(msg, type) {
-        type = type || 'success';
-        var container = document.querySelector('.toast-container');
-        var id  = 'toast-' + Date.now();
-        var cls = { success:'text-bg-success', error:'text-bg-danger', warning:'text-bg-warning', info:'text-bg-info' }[type] || 'text-bg-secondary';
-        var ico = { success:'bi-check-circle-fill', error:'bi-exclamation-triangle-fill', warning:'bi-exclamation-circle-fill', info:'bi-info-circle-fill' }[type] || 'bi-bell-fill';
-        container.insertAdjacentHTML('beforeend',
-            '<div id="' + id + '" class="toast align-items-center ' + cls + ' border-0" role="alert">' +
-              '<div class="d-flex"><div class="toast-body d-flex align-items-center gap-2">' +
-                '<i class="bi ' + ico + '"></i><span>' + esc(msg) + '</span>' +
-              '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+        type = type || 'info';
+        var area = document.querySelector('.toast-container');
+        var id   = 'toast-' + Date.now();
+        var cls  = { success:'text-bg-success', error:'text-bg-danger', warning:'text-bg-warning', info:'text-bg-info' }[type] || 'text-bg-secondary';
+        var ico  = { success:'bi-check-circle-fill', error:'bi-exclamation-triangle-fill', warning:'bi-exclamation-circle-fill', info:'bi-info-circle-fill' }[type] || 'bi-bell-fill';
+        area.insertAdjacentHTML('beforeend',
+            '<div id="'+id+'" class="toast align-items-center '+cls+' border-0" role="alert">' +
+            '<div class="d-flex"><div class="toast-body d-flex align-items-center gap-2">' +
+            '<i class="bi '+ico+'"></i><span>'+esc(msg)+'</span>' +
+            '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
             '</div></div>'
         );
         var el = document.getElementById(id);
-        new bootstrap.Toast(el, { autohide: true, delay: 4000 }).show();
-        el.addEventListener('hidden.bs.toast', function () { el.remove(); });
+        new bootstrap.Toast(el, { autohide:true, delay:5000 }).show();
+        el.addEventListener('hidden.bs.toast', function(){ el.remove(); });
     }
 
-    // ── Render result card ────────────────────────────────────────────────────
+    // ── Display result card ────────────────────────────────────────────────────
 
-    function showResult(tx) {
-        var status  = (tx.status  || 'unknown').toLowerCase();
-        var type    = tx.type     || '';
-        var amount  = tx.amount   || 0;
-        var ref     = tx.reference || tx.ref || '';
+    function renderResult(tx, errorMsg) {
+        var card = document.getElementById('resultCard');
 
-        document.getElementById('resultIcon').textContent   = statusIcon(status);
-        document.getElementById('resultTitle').textContent  = capitalize(status);
-        document.getElementById('resultRef').textContent    = ref ? 'Ref: ' + ref : '';
-        document.getElementById('resultAmount').textContent = fmtNaira(amount);
+        if (errorMsg) {
+            document.getElementById('resultIcon').textContent  = '❓';
+            document.getElementById('resultTitle').textContent = 'Not Found';
+            document.getElementById('resultRef').textContent   = '';
+            document.getElementById('resultAmount').textContent= '\u20a60.00';
+            var b = document.getElementById('resultBadge');
+            b.textContent = 'Error'; b.className = 'badge-soft badge-soft-danger';
+            document.getElementById('resultDetails').style.display = 'none';
+            document.getElementById('resultActions').innerHTML =
+                '<button class="btn btn-outline-secondary btn-sm" id="clearBtn">'+
+                '<i class="bi bi-x-lg me-1"></i>Clear</button>';
+            document.getElementById('clearBtn').onclick = function(){ card.style.display='none'; };
+            card.style.display = 'block';
+            showToast(errorMsg, 'error');
+            return;
+        }
+
+        var status = (tx.status || 'unknown').toLowerCase();
+
+        document.getElementById('resultIcon').textContent   = statusEmoji(status);
+        document.getElementById('resultTitle').textContent  = cap(status);
+        document.getElementById('resultRef').textContent    = tx.reference ? 'Ref: ' + tx.reference : '';
+        document.getElementById('resultAmount').textContent = fmtNaira(tx.amount || 0);
 
         var badge = document.getElementById('resultBadge');
-        badge.textContent = capitalize(status);
-        badge.className   = statusBadgeClass(status);
+        badge.textContent = cap(status);
+        badge.className   = badgeCls(status);
 
-        // Details grid
-        var details = [
-            { label: 'Type',         value: capitalize(type) },
-            { label: 'Provider',     value: capitalize(tx.provider) },
-            { label: 'Date',         value: fmtDate(tx.created_at) },
-            { label: 'External Ref', value: tx.external_ref || '—' }
-        ];
-        document.getElementById('resultDetailsGrid').innerHTML = details.map(function (d) {
-            return '<div class="col-6">' +
-                '<div class="text-muted" style="font-size:.72rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;">' + esc(d.label) + '</div>' +
-                '<div class="fw-semibold small mt-1">' + esc(d.value) + '</div>' +
+        // Details
+        var dg = document.getElementById('resultDetailsGrid');
+        dg.innerHTML = [
+            { label:'Type',         value: cap(tx.type)     },
+            { label:'Provider',     value: cap(tx.provider) },
+            { label:'Date',         value: fmtDate(tx.created_at) },
+            { label:'External Ref', value: tx.external_ref || '\u2014' }
+        ].map(function(d){
+            return '<div class="col-6">'+
+                '<div class="text-muted" style="font-size:.72rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;">'+esc(d.label)+'</div>'+
+                '<div class="fw-semibold small mt-1">'+esc(d.value)+'</div>'+
             '</div>';
         }).join('');
         document.getElementById('resultDetails').style.display = 'block';
 
-        // Action buttons
+        // Actions
         var actions = '';
-
         if (status === 'pending' || status === 'processing') {
-            actions +=
-                '<button class="btn btn-warning btn-sm" id="requeueBtn">' +
-                    '<i class="bi bi-arrow-clockwise me-1"></i>Reprocess Transaction' +
-                '</button>';
+            actions += '<button class="btn btn-warning btn-sm" id="reprocessBtn">'+
+                '<i class="bi bi-arrow-clockwise me-1"></i>Reprocess</button>';
         }
         if (status === 'success') {
-            actions +=
-                '<a href="/receipt?ref=' + encodeURIComponent(ref) + '" class="btn btn-outline-success btn-sm">' +
-                    '<i class="bi bi-receipt me-1"></i>View Receipt' +
-                '</a>';
+            actions += '<a href="/receipt?ref='+encodeURIComponent(tx.reference||'')+'" class="btn btn-outline-success btn-sm">'+
+                '<i class="bi bi-receipt me-1"></i>View Receipt</a>';
         }
-        actions +=
-            '<button class="btn btn-outline-secondary btn-sm" id="clearResultBtn">' +
-                '<i class="bi bi-x-lg me-1"></i>Clear' +
-            '</button>';
-
+        actions += '<button class="btn btn-outline-secondary btn-sm" id="clearBtn">'+
+            '<i class="bi bi-x-lg me-1"></i>Clear</button>';
         document.getElementById('resultActions').innerHTML = actions;
 
-        // Wire up reprocess button
-        var requeueBtn = document.getElementById('requeueBtn');
-        if (requeueBtn) {
-            requeueBtn.addEventListener('click', function () { reprocess(ref, requeueBtn); });
-        }
-
-        // Wire up clear button
-        document.getElementById('clearResultBtn').addEventListener('click', function () {
-            document.getElementById('resultCard').style.display = 'none';
+        var clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) clearBtn.onclick = function(){
+            card.style.display = 'none';
             document.getElementById('refInput').value = '';
             document.getElementById('refInput').focus();
-        });
+        };
 
-        document.getElementById('resultCard').style.display = 'block';
-        document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+        var reprocessBtn = document.getElementById('reprocessBtn');
+        if (reprocessBtn) reprocessBtn.onclick = function(){ reprocess(tx.reference, reprocessBtn); };
 
-    function showError(message) {
-        document.getElementById('resultIcon').textContent   = '❓';
-        document.getElementById('resultTitle').textContent  = 'Not Found';
-        document.getElementById('resultRef').textContent    = '';
-        document.getElementById('resultAmount').textContent = '₦0.00';
-
-        var badge = document.getElementById('resultBadge');
-        badge.textContent = 'Error';
-        badge.className   = 'badge-soft badge-soft-danger';
-
-        document.getElementById('resultDetails').style.display = 'none';
-        document.getElementById('resultActions').innerHTML =
-            '<button class="btn btn-outline-secondary btn-sm" id="clearResultBtn">' +
-                '<i class="bi bi-x-lg me-1"></i>Clear' +
-            '</button>';
-
-        document.getElementById('clearResultBtn').addEventListener('click', function () {
-            document.getElementById('resultCard').style.display = 'none';
-        });
-
-        document.getElementById('resultCard').style.display = 'block';
-        showToast(message, 'error');
+        card.style.display = 'block';
+        card.scrollIntoView({ behavior:'smooth', block:'nearest' });
     }
 
     // ── Check transaction ─────────────────────────────────────────────────────
@@ -388,35 +381,28 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
         var ref = (document.getElementById('refInput').value || '').trim();
         if (!ref) { showToast('Please enter a transaction reference', 'warning'); return; }
 
-        var btn = document.getElementById('checkBtn');
+        var btn  = document.getElementById('checkBtn');
         var orig = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking...';
         document.getElementById('resultCard').style.display = 'none';
 
-        try {
-            // Look up the transaction by reference via the transactions list endpoint
-            var res  = await fetch('/api/wallet/transactions?limit=100', {
-                credentials: 'same-origin',
-                headers:     { 'Accept': 'application/json' }
+        // First try exact lookup by ID endpoint if reference looks like a MongoDB ID,
+        // otherwise search through the transactions list.
+        var result = await safeFetch('GET', '/api/wallet/transactions?limit=200');
+
+        if (!result.ok) {
+            renderResult(null, result.data.error || 'Failed to load transactions');
+        } else {
+            var txs = (result.data.transactions || []);
+            var tx  = txs.find(function(t){
+                return (t.reference||'') === ref || (t.external_ref||'') === ref;
             });
-            var data = await res.json();
-
-            var tx = null;
-            if (data.ok && Array.isArray(data.transactions)) {
-                tx = data.transactions.find(function (t) {
-                    return (t.reference || '') === ref || (t.external_ref || '') === ref;
-                });
-            }
-
-            if (!tx) {
-                showError('Transaction "' + ref + '" not found in your account.');
+            if (tx) {
+                renderResult(tx, null);
             } else {
-                showResult(tx);
+                renderResult(null, 'No transaction with reference "' + ref + '" found on your account.');
             }
-
-        } catch (err) {
-            showError('Network error: ' + err.message);
         }
 
         btn.disabled = false;
@@ -431,108 +417,86 @@ const _csrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
 
-        try {
-            var fd = new FormData();
-            fd.append('reference', ref);
-            fd.append('_csrf', CSRF);
+        // Send JSON body — no FormData, no redirect risk
+        var result = await safeFetch('POST', '/api/wallet/requery', {
+            reference: ref,
+            _csrf:     CSRF
+        });
 
-            var res  = await fetch('/api/wallet/requery', {
-                method:      'POST',
-                body:        fd,
-                credentials: 'same-origin',
-                headers:     { 'X-CSRF-Token': CSRF }
-            });
-            var data = await res.json();
-
-            if (!res.ok || data.ok === false) {
-                throw new Error(data.error || 'Requery failed');
-            }
-
-            var status = (data.status || '').toLowerCase();
-
-            if (status === 'success') {
-                showToast('Transaction verified and wallet credited! New balance: ' + (data.new_balance ? '₦' + Number(data.new_balance).toFixed(2) : ''), 'success');
-            } else if (status === 'pending') {
-                showToast(data.message || 'Still pending — try again in a few minutes', 'warning');
-            } else {
-                showToast(data.message || 'Status: ' + status, 'info');
-            }
-
-            // Refresh the result display with updated status
-            setTimeout(function () { checkTransaction(); }, 1200);
-
-        } catch (err) {
-            showToast(err.message, 'error');
+        if (!result.ok) {
+            showToast(result.data.error || 'Requery failed', 'error');
             btn.disabled = false;
             btn.innerHTML = orig;
+            return;
         }
+
+        var data   = result.data;
+        var status = (data.status || '').toLowerCase();
+
+        if (status === 'success') {
+            var bal = data.new_balance != null ? ' New balance: ' + fmtNaira(data.new_balance) : '';
+            showToast('Payment verified and wallet credited!' + bal, 'success');
+        } else if (status === 'pending') {
+            showToast(data.message || 'Still pending with provider — try again in a few minutes', 'warning');
+        } else {
+            showToast(data.message || 'Status: ' + (status || 'unknown'), 'info');
+        }
+
+        // Refresh the result card after a short delay
+        setTimeout(function(){ checkTransaction(); }, 1500);
     }
 
-    // ── Recent transactions sidebar ────────────────────────────────────────────
+    // ── Load recent transactions sidebar ──────────────────────────────────────
 
     async function loadRecent() {
         var container = document.getElementById('recentList');
-        try {
-            var res  = await fetch('/api/wallet/transactions?limit=8', {
-                credentials: 'same-origin',
-                headers:     { 'Accept': 'application/json' }
-            });
-            var data = await res.json();
+        var result    = await safeFetch('GET', '/api/wallet/transactions?limit=8');
 
-            if (!data.ok || !data.transactions || !data.transactions.length) {
-                container.innerHTML = '<div class="text-center py-4 text-muted small">No recent transactions</div>';
-                return;
-            }
-
-            container.innerHTML = data.transactions.map(function (t) {
-                var status    = (t.status   || 'unknown').toLowerCase();
-                var type      = t.type      || '';
-                var reference = t.reference || '';
-                var amount    = t.amount    || 0;
-                var badgeCls  = statusBadgeClass(status);
-
-                return '<div class="recent-item" onclick="document.getElementById(\'refInput\').value=\'' +
-                        esc(reference) + '\'; checkTransactionPublic();">' +
-                    '<div class="d-flex justify-content-between align-items-start">' +
-                        '<div class="me-2" style="min-width:0;">' +
-                            '<div class="fw-semibold small text-truncate">' + esc(capitalize(type)) + '</div>' +
-                            '<div class="text-muted" style="font-size:.75rem;font-family:monospace;">' + esc(reference.slice(-14)) + '</div>' +
-                        '</div>' +
-                        '<div class="text-end flex-shrink-0">' +
-                            '<div class="fw-bold small">' + fmtNaira(amount) + '</div>' +
-                            '<span class="' + badgeCls + '" style="font-size:.7rem;padding:.15rem .5rem;">' + esc(status) + '</span>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-
-        } catch (err) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small">Failed to load</div>';
+        if (!result.ok || !result.data.transactions || !result.data.transactions.length) {
+            container.innerHTML = '<div class="text-center py-4 text-muted small">No recent transactions</div>';
+            return;
         }
+
+        container.innerHTML = result.data.transactions.map(function(t){
+            var status = (t.status||'unknown').toLowerCase();
+            var ref    = t.reference || '';
+            return '<div class="recent-item" onclick="fillAndCheck(\''+esc(ref)+'\')">'+
+                '<div class="d-flex justify-content-between align-items-start">'+
+                    '<div class="me-2" style="min-width:0;">'+
+                        '<div class="fw-semibold small text-truncate">'+esc(cap(t.type||'—'))+'</div>'+
+                        '<div class="text-muted" style="font-size:.75rem;font-family:monospace;">'+esc(ref.slice(-16))+'</div>'+
+                    '</div>'+
+                    '<div class="text-end flex-shrink-0">'+
+                        '<div class="fw-bold small">'+fmtNaira(t.amount||0)+'</div>'+
+                        '<span class="'+badgeCls(status)+'" style="font-size:.7rem;padding:.15rem .5rem;">'+esc(status)+'</span>'+
+                    '</div>'+
+                '</div>'+
+            '</div>';
+        }).join('');
     }
 
-    // ── Event listeners ───────────────────────────────────────────────────────
+    // ── Public helpers ────────────────────────────────────────────────────────
+
+    window.fillAndCheck = function(ref) {
+        document.getElementById('refInput').value = ref;
+        checkTransaction();
+    };
+
+    // ── Wire up ───────────────────────────────────────────────────────────────
 
     document.getElementById('checkBtn').addEventListener('click', checkTransaction);
-    document.getElementById('refInput').addEventListener('keydown', function (e) {
+    document.getElementById('refInput').addEventListener('keydown', function(e){
         if (e.key === 'Enter') checkTransaction();
     });
 
-    // Expose so recent list onclick can call it
-    window.checkTransactionPublic = checkTransaction;
-
-    // ── Pre-fill from URL param ────────────────────────────────────────────────
-
+    // Pre-fill from URL ?ref=
     var urlRef = new URLSearchParams(window.location.search).get('ref');
     if (urlRef) {
         document.getElementById('refInput').value = urlRef;
         checkTransaction();
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────────
-
     loadRecent();
-
 })();
 </script>
 
