@@ -1,70 +1,85 @@
 const crypto = require('crypto');
 
 /**
- * Setup CSRF protection - SIMPLIFIED for production
+ * Setup CSRF protection - attaches a fresh token to every response.
  */
 const setupCsrf = () => {
     return (req, res, next) => {
-        // Generate a simple token without session dependency
-        const token = crypto.randomBytes(32).toString('hex');
-        
-        // Make token available to views and requests
+        const token = crypto.randomBytes(32).toString('hex'); // 64 hex chars
+
         res.locals.csrfToken = token;
         req.csrfToken = () => token;
-        
-        // Set cookie for AJAX requests
+
         res.cookie('XSRF-TOKEN', token, {
             httpOnly: false,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000
         });
-        
+
         next();
     };
 };
 
 /**
- * CSRF protection middleware
+ * CSRF validation middleware.
+ *
+ * Accepts the token from any of:
+ *   - req.body._csrf
+ *   - req.headers['x-csrf-token']
+ *   - req.headers['xsrf-token']
+ *   - req.headers['x-xsrf-token']
+ *   - req.cookies['XSRF-TOKEN']
+ *
+ * FIX: coerce token to string before calling .match() so the server
+ * never throws "token.match is not a function" when the value is
+ * null / undefined / a non-string (e.g. sent as JSON number/boolean).
  */
 const csrfProtection = (req, res, next) => {
-    // Skip CSRF for GET, HEAD, OPTIONS requests
+    // Skip safe methods
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         return next();
     }
 
-    // In production, verify token
-    if (process.env.NODE_ENV === 'production') {
-        const token = req.body._csrf || 
-                      req.headers['x-csrf-token'] || 
-                      req.headers['xsrf-token'] ||
-                      req.headers['x-xsrf-token'] ||
-                      req.cookies['XSRF-TOKEN'];
+    // Only enforce in production
+    if (process.env.NODE_ENV !== 'production') {
+        return next();
+    }
 
-        if (!token) {
-            return res.status(403).json({
-                ok: false,
-                error: 'CSRF token missing'
-            });
-        }
+    // Collect candidate token from all possible locations
+    const raw =
+        req.body?._csrf             ||
+        req.headers['x-csrf-token'] ||
+        req.headers['xsrf-token']   ||
+        req.headers['x-xsrf-token'] ||
+        req.cookies?.['XSRF-TOKEN'] ||
+        null;
 
-        // Simple validation - token should be 64 chars hex
-        if (!token.match(/^[a-f0-9]{64}$/)) {
-            return res.status(403).json({
-                ok: false,
-                error: 'Invalid CSRF token'
-            });
-        }
+    // --- FIX: always coerce to string before calling .match() ---
+    const token = raw != null ? String(raw) : '';
+
+    if (!token) {
+        return res.status(403).json({
+            ok: false,
+            error: 'CSRF token missing'
+        });
+    }
+
+    // Must be exactly 64 lowercase hex characters
+    if (!/^[a-f0-9]{64}$/.test(token)) {
+        return res.status(403).json({
+            ok: false,
+            error: 'Invalid CSRF token'
+        });
     }
 
     next();
 };
 
 /**
- * Generate CSRF token for API responses
+ * Generate a standalone CSRF token (used by /api/csrf route).
  */
 const generateToken = (req) => {
-    // Always return a valid token without session dependency
     return crypto.randomBytes(32).toString('hex');
 };
 
