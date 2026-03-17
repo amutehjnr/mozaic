@@ -1,6 +1,5 @@
 <%
 const user = typeof userData !== 'undefined' ? userData : { id: 0, name: '', email: '' };
-const queryParams = typeof queryParams !== 'undefined' ? queryParams : {};
 
 // Format helpers
 const formatNaira = (amount) => '₦' + Number(amount).toLocaleString('en-NG', { 
